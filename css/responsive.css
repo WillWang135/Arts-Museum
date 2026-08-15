@@ -16,6 +16,15 @@
   #museum-credit{left:14px;bottom:12px;font-size:10px}
   .tray .tray-label{display:none}
   .stamp{width:44px;height:44px}
+
+  /* On a phone the four right-hand chips span the whole width, which buried
+     the left-hand rail underneath them - "View" was completely unreachable.
+     Shrink the chips so the right rail stays a single row, then drop the
+     left rail below it. */
+  .chip{padding:8px 10px;font-size:10.5px;letter-spacing:.06em;min-height:34px}
+  .rail{top:10px}
+  .rail-r{right:10px;flex-wrap:nowrap}
+  .rail-l{left:10px;top:56px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important;transition-duration:.01ms !important}

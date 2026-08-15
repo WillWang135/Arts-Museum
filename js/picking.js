@@ -27,16 +27,20 @@ function currentAim(e) {
   return castFrom(ndc);
 }
 
+/* Returns true when the click landed on something - a work or a sticker.
+   The caller uses that to tell "I meant to use this" apart from "I clicked
+   empty wall", which on desktop toggles mouse look. */
 function act(e) {
   const hit = currentAim(e);
-  if (!hit || hit.distance > 14) return;
+  if (!hit || hit.distance > 14) return false;
   if (stamp === "erase") {
-    if (hit.sticker) removeSticker(hit.sticker);
-    else toast("Aim at a sticker to remove it");
-    return;
+    if (hit.sticker) { removeSticker(hit.sticker); return true; }
+    return false;                      // no sticker there: treat as empty space
   }
   if (hit.frame) {
     if (stamp) placeSticker(hit.frame, hit.point);
     else openArtwork(hit.frame);
+    return true;
   }
+  return false;
 }

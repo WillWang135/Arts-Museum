@@ -109,6 +109,7 @@ body.is-guest #clear-btn{display:none !important}
 .dock .count{font-family:var(--display);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);margin-right:auto}
 .credit{
   font-family:var(--display);font-size:11px;letter-spacing:.1em;
-  color:#B4B7B1;white-space:nowrap;user-select:none;
+  /* Readable attribution, still quieter than the artwork count beside it. */
+  color:#7C838C;white-space:nowrap;user-select:none;
 }
 .dock .count b{color:var(--ink)}

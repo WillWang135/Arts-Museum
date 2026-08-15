@@ -26,26 +26,47 @@ window.addEventListener("blur", () => { for (const k in keys) keys[k] = false; }
    enough - iframes without the pointer-lock permission, managed work
    laptops, and a short cool-down after Esc - that it cannot be the only
    way. Holding the left button and dragging always works, everywhere. */
-let lookDrag = null, lockBlocked = false, toldAboutDrag = false;
+let lookDrag = null, lockBlocked = false, toldAboutDrag = false, lockRetryAt = 0;
 
 function noteDragLook() {
   if (toldAboutDrag || !running) return;
   toldAboutDrag = true;
   toast("Hold the left mouse button and drag to look around");
 }
+/* A refusal is not always permanent - browsers rate-limit re-locking for
+   about a second after the pointer is released, which the click-to-toggle
+   below runs into constantly. So back off briefly and allow a retry,
+   rather than giving up on pointer lock for the rest of the session. The
+   "just drag instead" hint is still only ever shown once. */
 function markLockBlocked() {
+  lockRetryAt = performance.now() + 1400;
   if (lockBlocked) return;
   lockBlocked = true;
   noteDragLook();
 }
 function tryPointerLock() {
   const el = $("gl");
-  if (lockBlocked || isTouchOnly() || !el.requestPointerLock) { markLockBlocked(); return false; }
+  if (isTouchOnly() || !el.requestPointerLock) { markLockBlocked(); return false; }
+  if (performance.now() < lockRetryAt) return false;
   try {
     const req = el.requestPointerLock();
     if (req && typeof req.catch === "function") req.catch(markLockBlocked);
   } catch (err) { markLockBlocked(); return false; }
   return true;
+}
+
+/* ---------- click to toggle mouse look ---------- */
+/* Clicking empty wall swaps between walking (pointer captured, moving the
+   mouse turns your head) and a free cursor for the HUD. Esc still works,
+   and clicking a work or a sticker does that instead of toggling. */
+let toldAboutToggle = false;
+
+function releaseLook(explain) {
+  if (document.pointerLockElement) document.exitPointerLock();
+  if (explain && !toldAboutToggle) {
+    toldAboutToggle = true;
+    toast("Cursor free — click the gallery again to look around");
+  }
 }
 
 document.addEventListener("pointerlockchange", () => {
@@ -81,18 +102,26 @@ $("gl").addEventListener("mousedown", e => {
   if (e.button !== 0 || overlayOpen()) return;
   if (performance.now() - lastTouchAt < 700) return;   // synthetic click after a tap
   e.preventDefault();
-  if (locked) { act(null); return; }                // already captured: this is a click
-  lookDrag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0, tried: false };
-  lookDrag.tried = tryPointerLock();
+  if (locked) {
+    /* Captured, so the reticle is the pointer: use whatever it is on, and
+       hand the cursor back when it is on nothing in particular. */
+    if (!act(null)) releaseLook(true);
+    return;
+  }
+  /* Not captured. Whether this turns out to be a click or a drag is decided
+     on release - asking for the pointer now would snatch it from someone who
+     only meant to drag the view around. */
+  lookDrag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0 };
 });
 window.addEventListener("mouseup", e => {
   if (e.button !== 0 || !lookDrag) return;
   const d = lookDrag;
   lookDrag = null;
   $("gl").classList.remove("dragging");
-  if (locked) return;                               // lock engaged on this press
-  if (d.tried && !lockBlocked) return;              // lock may still be arriving
-  if (d.moved < 6) act({ clientX: d.sx, clientY: d.sy });
+  if (locked) return;                               // lock arrived during the press
+  if (d.moved >= 6) return;                         // a drag, not a click
+  if (act({ clientX: d.sx, clientY: d.sy })) return;   // landed on a work or sticker
+  tryPointerLock();                                 // empty wall: take the pointer
 });
 window.addEventListener("blur", () => { lookDrag = null; $("gl").classList.remove("dragging"); });
 $("gl").addEventListener("wheel", e => {

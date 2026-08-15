@@ -116,7 +116,10 @@
 #museum-credit{
   position:absolute;left:18px;bottom:16px;
   font-family:var(--display);font-size:11px;letter-spacing:.11em;
-  color:rgba(255,255,255,.30);text-shadow:0 1px 3px rgba(0,0,0,.45);
+  /* This corner is always the pale oak floor, so a dark grey reads far
+     better here than white ever did, and a soft light halo keeps it legible
+     if a shadow happens to fall across it. Understated, not invisible. */
+  color:rgba(26,30,34,.62);text-shadow:0 1px 3px rgba(255,255,255,.55);
   pointer-events:none;user-select:none;
 }
 

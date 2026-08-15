@@ -27,6 +27,16 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      # The scripts share one scope, so a file may only use what the files
+      # above it define. This fails the deploy if that rule is broken.
+      - name: Check script load order
+        run: python3 check-load-order.py
+
+      # Built here rather than committed, so it can never fall behind the
+      # real source. Lands on the site next to index.html.
+      - name: Build single-file version
+        run: python3 build-single-file.py
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v4
         with:

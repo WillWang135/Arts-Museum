@@ -88,9 +88,15 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
   const backing = new THREE.Mesh(new THREE.BoxGeometry(W + 2 * m, H + 2 * m, 0.05), MAT.mat);
   backing.position.z = 0.025; backing.receiveShadow = true; g.add(backing);
 
-  const tex = new THREE.TextureLoader().load(art.src, () => { needsRender = true; });
-  tex.encoding = THREE.sRGBEncoding;
-  tex.anisotropy = maxAniso;
+  /* A video hangs as the clip itself - one decoded frame while paused, live
+     while playing. Everything else, including the generated sleeve for a
+     track, is an ordinary picture. */
+  let tex = artKind(art) === "video" ? videoTextureFor(art) : null;
+  if (!tex) {
+    tex = new THREE.TextureLoader().load(art.src, () => { needsRender = true; });
+    tex.encoding = THREE.sRGBEncoding;
+    tex.anisotropy = maxAniso;
+  }
   const img = new THREE.Mesh(new THREE.PlaneGeometry(W, H),
     new THREE.MeshStandardMaterial({
       map: tex, roughness: 0.72, metalness: 0.0,
@@ -136,6 +142,46 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
   });
 
   const rec = { group: g, art, pos: g.position.clone(), normal: normal.clone(), slots, scale, isFeature, OW, OH };
+
+  /* Play, and for video a sound toggle, sitting along the bottom of the
+     work like the controls on a player. They are ordinary meshes, so the
+     same reticle that reads a wall label operates them. */
+  if (isPlayable(art)) {
+    /* Tucked into the bottom corner of a video, the way a player puts them,
+       so they never sit over the picture. A track has nothing to obscure -
+       its sleeve is decoration - so its single button goes in the middle
+       where it reads as the obvious thing to press. */
+    const size = Math.min(0.26 * scale, H * 0.30, W * 0.22);
+    const wantsMute = artKind(art) === "video";
+    const gap = size * 1.18;
+    const xs = wantsMute
+      ? [W / 2 - size * 0.62 - gap, W / 2 - size * 0.62]
+      : [0];
+    const y = wantsMute ? -H / 2 + size * 0.66 : 0;
+    const mk = (name, x) => {
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+        new THREE.MeshBasicMaterial({
+          map: mediaIconTexture(name), transparent: true, depthWrite: false,
+          polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
+        }));
+      b.position.set(x, y, 0.075);        // in front of the picture at 0.062
+      b.renderOrder = 3;
+      g.add(b);
+      Pickables.push(b);
+      return b;
+    };
+    rec.controls = {
+      play: mk(mediaPlaying(art) ? "pause" : "play", xs[0]),
+      mute: wantsMute ? mk(mediaMuted(art) ? "muted" : "unmuted", xs[1]) : null
+    };
+    rec.controls.play.userData.control = "play";
+    rec.controls.play.userData.frame = rec;
+    if (rec.controls.mute) {
+      rec.controls.mute.userData.control = "mute";
+      rec.controls.mute.userData.frame = rec;
+    }
+  }
+
   g.userData.frame = rec;
   Frames.push(rec);
   Pickables.push(g);

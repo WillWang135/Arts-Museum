@@ -3,6 +3,8 @@
    ============================================================ */
 function enterMuseum() {
   if (!State.art.length) return;
+  /* Every room opens silent. Nothing plays until a visitor asks it to. */
+  stopAllMedia();
   $("screen-upload").classList.add("hidden");
   $("screen-museum").classList.remove("hidden");
   $("loading").classList.remove("hidden");
@@ -37,6 +39,7 @@ function enterMuseum() {
 
 function exitMuseum() {
   running = false;
+  stopAllMedia();                 // nothing carries on playing into the setup screen
   if (document.pointerLockElement) document.exitPointerLock();
   closeOverlay();
   $("screen-museum").classList.add("hidden");

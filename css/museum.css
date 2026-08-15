@@ -76,13 +76,46 @@
   animation:fade .18s ease both;
 }
 @keyframes fade{from{opacity:0}to{opacity:1}}
+/* The work first and large, its label underneath. --stage keeps the media
+   near three quarters of the window; "Fill the screen" pushes it to all of
+   it. object-fit:contain does the rest, so nothing is cropped or stretched
+   whatever shape it is. */
 .card{
-  background:var(--plate);max-width:940px;width:100%;max-height:88vh;overflow:auto;
-  display:grid;grid-template-columns:1.25fr 1fr;
+  --stage:74vh;
+  position:relative;
+  background:var(--plate);width:min(1240px,94vw);max-height:92vh;overflow:auto;
+  display:block;
 }
-.card figure{margin:0;background:#EDEDE9;display:grid;place-items:center;padding:26px}
-.card figure img{max-width:100%;max-height:60vh;box-shadow:0 6px 34px rgba(0,0,0,.28)}
-.card .meta{padding:30px 30px 26px;font-family:var(--body);display:flex;flex-direction:column}
+/* The veil pads its contents; cancel that with a matching negative margin
+   so "fill the screen" really means the whole screen. */
+.card.is-full{--stage:100vh;width:100vw;max-height:100vh;margin:-24px}
+.card .stage{background:#EDEDE9;display:grid;place-items:center;padding:20px}
+.card.is-full .stage{padding:0;background:#0B0D0F}
+.card .stage-inner{
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  width:100%;max-width:100%;
+}
+/* Give the media a box the size of the stage and let object-fit place the
+   picture inside it. max-height alone only ever caps - a small clip would
+   sit at its own tiny pixel size in the middle of the screen - while
+   forcing both sides would stretch it. contain does neither: it fills as
+   much of the box as the aspect ratio allows and never crops. */
+.card .stage img,.card .stage video{
+  display:block;width:100%;height:var(--stage);
+  object-fit:contain;object-position:center;
+}
+.card .stage img{filter:drop-shadow(0 6px 30px rgba(0,0,0,.30))}
+.card.is-full .stage img{filter:none}
+/* a track shows its sleeve with the player sitting underneath */
+.card .stage img.audio-cover{height:calc(var(--stage) - 86px)}
+/* An <audio> element has no intrinsic height: leave it on auto and it
+   collapses to nothing and the player disappears. Give it the height the
+   browser draws its controls at, and stop flex shrinking it away. */
+.card .stage audio{width:min(560px,92%);height:54px;flex:0 0 auto;display:block}
+
+.card .metatop{display:flex;gap:22px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.card .mediabar{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.card .meta{padding:26px 30px 26px;font-family:var(--body);display:flex;flex-direction:column}
 .card .accession-line{font-family:var(--display);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--viridian)}
 .card h2{font-family:var(--display);font-size:29px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:10px 0 0}
 .card .by{font-style:italic;color:var(--slate);margin:8px 0 0;font-size:16px}
@@ -140,3 +173,12 @@
 #loading .fail p{font-family:var(--body);font-size:14px;line-height:1.6;letter-spacing:0;text-transform:none;color:var(--slate);margin:0 0 12px}
 #loading .fail code{background:#F1F1ED;padding:1px 5px;font-size:12.5px;word-break:break-all}
 #loading .fail .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+
+/* Audio and video elements live here whenever they are not on screen. They
+   have to stay in the document or the browser stops decoding them and the
+   picture on the wall freezes, so they are hidden by size rather than by
+   display:none, which would do exactly that. */
+#media-pool{
+  position:fixed;left:0;bottom:0;width:1px;height:1px;
+  overflow:hidden;opacity:0;pointer-events:none;z-index:-1;
+}

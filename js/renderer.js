@@ -118,6 +118,7 @@ function frameLoop() {
   updateSpots(dt, now);
   updateDaylight(dt, t);
   pulseStickers(t, dt);
+  tickMediaTextures();          // only whatever is actually moving
 
   if (now - lastMap > 90) { lastMap = now; paintMinimap(); }
 
@@ -129,6 +130,8 @@ function frameLoop() {
     const r = $("reticle"), hn = $("hint");
     r.classList.toggle("aim", !!near);
     if (near && stamp === "erase" && hit.sticker) hint(hn, "Click to remove this sticker");
+    else if (near && hit.control === "play") hint(hn, mediaPlaying(hoverFrame.art) ? "Click to pause" : "Click to play");
+    else if (near && hit.control === "mute") hint(hn, mediaMuted(hoverFrame.art) ? "Click for sound" : "Click to mute");
     else if (near && hoverFrame && stamp) hint(hn, "Click to award " + STAMPS[stamp].label.toLowerCase());
     else if (near && hoverFrame) hint(hn, (hoverFrame.art.name || "Untitled") + " — click to read");
     else hn.classList.remove("show");

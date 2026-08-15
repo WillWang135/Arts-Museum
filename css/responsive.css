@@ -7,8 +7,15 @@
   .joinbox{width:auto;order:-1}
   .wall-label{grid-template-columns:88px 1fr;gap:14px}
   .label-actions{grid-column:1/-1;grid-auto-flow:column;justify-content:start;align-items:center}
-  .card{grid-template-columns:1fr}
-  .card figure img{max-height:38vh}
+  /* The veil's padding is part of the width budget: 96vw plus 24px of
+     padding each side pushed the card off the right of a phone screen. */
+  .veil{padding:12px}
+  .card{--stage:52vh;width:calc(100vw - 24px)}
+  .card.is-full{--stage:88vh;margin:-12px}
+  .card .meta{padding:18px 18px 22px}
+  .card .metatop{gap:14px}
+  .card .mediabar{width:100%}
+  .card .mediabar .btn{flex:1;min-width:0}
   #minimap{display:none}
   .plate{padding:36px 18px 0}
   .dock{padding:12px 16px;flex-wrap:wrap}

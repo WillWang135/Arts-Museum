@@ -30,7 +30,9 @@ function renderLabels() {
     row.className = "wall-label";
     row.dataset.id = a.id;
     row.innerHTML =
-      '<div class="thumb-wrap"><span class="accession">' + pad3(i + 1) + '</span><img alt=""></div>' +
+      '<div class="thumb-wrap"><span class="accession">' + pad3(i + 1) + '</span><img alt="">' +
+        (isPlayable(a) ? '<span class="kindtag">' + (artKind(a) === "audio" ? "Audio" : "Video") + '</span>' : '') +
+      '</div>' +
       '<div class="label-fields">' +
         '<input class="f-title" data-f="name" placeholder="Artwork name" maxlength="70">' +
         '<input class="f-author" data-f="author" placeholder="Student name" maxlength="60">' +
@@ -63,6 +65,7 @@ labelsEl.addEventListener("click", e => {
   const row = e.target.closest(".wall-label"); if (!row) return;
   const id = +row.dataset.id;
   if (e.target.closest(".remove-btn")) {
+    disposeMedia(id);                     // stop and release any clip it held
     State.art = State.art.filter(x => x.id !== id);
     State.stickers = State.stickers.filter(s => s.artId !== id);
     renderLabels();
@@ -118,25 +121,84 @@ function shrink(img) {
   return { src: c.toDataURL("image/jpeg", 0.85), w, h };
 }
 
-async function ingest(fileList) {
-  const files = Array.from(fileList).filter(f => /^image\/(png|jpe?g)$/i.test(f.type));
-  if (!files.length) { return; }
-  for (const f of files) {
-    try {
-      const raw = await readAsDataURL(f);
-      const img = await loadImg(raw);
-      const small = shrink(img);
-      const base = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
-      State.art.push({
-        id: State.nextId++,
-        name: base.charAt(0).toUpperCase() + base.slice(1),
-        author: "", desc: "",
-        src: small.src, aw: small.w, ah: small.h, featured: false
-      });
-    } catch (err) { /* skip unreadable file */ }
+function titleFromFilename(name) {
+  const base = name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+/* One file in, one artwork record out. Pictures are resized as before; a
+   clip is kept whole, because re-encoding video in the browser is not
+   something a classroom laptop should be asked to do. */
+async function buildArtwork(file, kind) {
+  const name = titleFromFilename(file.name);
+
+  if (kind === "image") {
+    const small = shrink(await loadImg(await readAsDataURL(file)));
+    return { id: State.nextId++, kind: "image", name: name, author: "", desc: "",
+             src: small.src, aw: small.w, ah: small.h, featured: false };
   }
+
+  const data = await readAsDataURL(file);
+
+  if (kind === "audio") {
+    if (!await probeAudio(data)) throw new Error("decode");
+    return { id: State.nextId++, kind: "audio", name: name, author: "", desc: "",
+             src: audioCover(name), media: data, aw: 1, ah: 1, featured: false };
+  }
+
+  /* A .mov can carry a codec this browser will not open. It still becomes
+     an artwork - it hangs, it takes stickers - it just shows a placeholder
+     instead of a poster frame. */
+  const info = await probeVideo(data);
+  const usable = info.w > 0 && info.h > 0;
+  return {
+    id: State.nextId++, kind: "video", name: name, author: "", desc: "",
+    src: info.poster || videoFallbackCover(name), media: data,
+    aw: usable ? info.w : 16, ah: usable ? info.h : 9, featured: false
+  };
+}
+
+async function ingest(fileList) {
+  const skipped = { type: [], big: [], broken: [] };
+  const queue = [];
+
+  Array.from(fileList).forEach(f => {
+    const kind = fileKind(f);
+    if (!kind) { skipped.type.push(f.name); return; }
+    if (kind !== "image" && f.size > MAX_MEDIA_MB * 1048576) { skipped.big.push(f.name); return; }
+    queue.push({ file: f, kind: kind });
+  });
+
+  if (queue.length) setDropzoneBusy(queue.length);
+  for (const item of queue) {
+    try {
+      State.art.push(await buildArtwork(item.file, item.kind));
+    } catch (err) { skipped.broken.push(item.file.name); }
+  }
+  setDropzoneBusy(0);
+
   if (State.art.length && !State.art.some(a => a.featured)) State.art[0].featured = true;
   renderLabels();
+  reportSkipped(skipped);
+}
+
+/* Reading a video can take a moment; say so rather than looking frozen. */
+function setDropzoneBusy(n) {
+  const dz = $("dropzone"), label = dz.querySelector("strong");
+  if (!label) return;
+  if (!dz.dataset.idle) dz.dataset.idle = label.textContent;
+  label.textContent = n ? "Reading " + n + (n === 1 ? " file…" : " files…") : dz.dataset.idle;
+}
+
+function reportSkipped(s) {
+  const lines = [];
+  if (s.type.length) lines.push("Not a file the museum can show: " + s.type.join(", ") +
+    "\nIt takes PNG, JPG, MP3, MP4 and MOV.");
+  if (s.big.length) lines.push("Larger than " + MAX_MEDIA_MB + " MB: " + s.big.join(", ") +
+    "\nA clip travels inside the session file, so a big one slows down every student who joins. Trim it first.");
+  if (s.broken.length) lines.push("Could not be read: " + s.broken.join(", ") +
+    "\nThe file may be damaged, or use a format this browser cannot open.");
+  if (lines.length) alert(lines.join("\n\n"));
 }
 
 $("browse-btn").addEventListener("click", () => $("file-input").click());
@@ -156,6 +218,7 @@ window.addEventListener("drop", e => e.preventDefault());
 
 $("clear-btn").addEventListener("click", () => {
   if (!confirm("Remove every artwork and sticker from this museum?")) return;
+  disposeAllMedia();
   State.art = []; State.stickers = []; renderLabels();
 });
 
@@ -181,6 +244,7 @@ $("restore-input").addEventListener("change", async e => {
   try {
     const data = JSON.parse(await f.text());
     if (data.format !== "student-art-museum" || !Array.isArray(data.art)) throw new Error("shape");
+    disposeAllMedia();
     State.art = data.art;
     State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
     State.nextId = State.art.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1;
@@ -199,6 +263,15 @@ $("museum-title").addEventListener("input", e => {
   const st = $("plan-status");
   if (st && State.art.length) st.textContent = museumTitle();
 });
+
+/* ---------- attribution ---------- */
+/* Both lines come from APP_VERSION in js/config.js. The markup carries the
+   same text so the credit still reads correctly before this runs. */
+(function stampVersion() {
+  const home = $("home-credit"), inside = $("museum-credit");
+  if (home) home.textContent = "Designed by Mr Wang - " + APP_VERSION;
+  if (inside) inside.textContent = APP_VERSION + " - By Mr Wang";
+})();
 
 renderLabels();
 requestAnimationFrame(paintPlan);

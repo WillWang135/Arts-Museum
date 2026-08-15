@@ -60,16 +60,16 @@
     <section class="intake">
       <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add artwork images">
         <strong>Drop artwork here</strong>
-        <span>PNG or JPG &middot; one at a time or the whole class at once</span>
+        <span>PNG, JPG, MP3, MP4 or MOV &middot; one at a time or the whole class at once</span>
         <button class="btn btn-primary" id="browse-btn" type="button">Choose images</button>
-        <input id="file-input" type="file" accept="image/png,image/jpeg,image/jpg" multiple hidden>
+        <input id="file-input" type="file" accept="image/png,image/jpeg,image/jpg,video/mp4,video/quicktime,audio/mpeg,.png,.jpg,.jpeg,.mp3,.mp4,.mov" multiple hidden>
       </div>
       <div id="labels" class="labels"></div>
     </section>
   </div>
 
   <footer class="dock">
-    <span class="credit">Designed by Mr Wang - V1.0</span>
+    <span class="credit" id="home-credit">Designed by Mr Wang - V1.1</span>
     <span class="count" id="count-text">No artwork yet</span>
     <input id="restore-input" type="file" accept="application/json,.json" hidden>
     <button class="btn btn-quiet" id="restore-btn" type="button">Open saved museum</button>
@@ -112,7 +112,7 @@
       <button class="stamp" data-stamp="erase" type="button" title="Remove a sticker"></button>
     </div>
 
-    <div id="museum-credit">V1.0 - By Mr Wang</div>
+    <div id="museum-credit">V1.1 - By Mr Wang</div>
 
     <div class="toast" id="toast"></div>
 
@@ -123,6 +123,7 @@
 
   <div id="loading"><div style="text-align:center"><div class="bar"><i></i></div><p>Hanging the exhibition</p></div></div>
   <div id="overlay-root"></div>
+  <div id="media-pool" aria-hidden="true"></div>
 </div>
 
 <!-- Tried first so the library is usually cached before anyone opens the
@@ -143,6 +144,9 @@
 <script src="js/state.js"></script>
 <script src="js/codes.js"></script>
 <script src="js/sessions.js"></script>
+
+<!-- audio and video artworks: needed by both the setup screen and the museum -->
+<script src="js/media.js"></script>
 
 <!-- room shape, shared by the floorplan and the 3D build -->
 <script src="js/geometry.js"></script>

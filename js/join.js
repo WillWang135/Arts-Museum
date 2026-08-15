@@ -35,6 +35,7 @@ async function joinSession(rawCode) {
       setJoinNote("Loading the artwork\u2026 " + Math.round(p * 100) + "%", "");
     });
     if (!data.art.length) throw new Error("not-found");
+    disposeAllMedia();
     State.art = data.art;
     State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
     State.nextId = State.art.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1;
@@ -68,6 +69,7 @@ $("reenter-btn").addEventListener("click", () => enterMuseum());
 $("leave-btn").addEventListener("click", () => {
   if (location.protocol === "about:") {
     State.guest = false;
+    disposeAllMedia();
     State.art = []; State.stickers = [];
     State.session = { code: null, title: "", published: null };
     applyGuestMode(); renderLabels();

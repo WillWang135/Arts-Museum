@@ -113,3 +113,10 @@ body.is-guest #clear-btn{display:none !important}
   color:#7C838C;white-space:nowrap;user-select:none;
 }
 .dock .count b{color:var(--ink)}
+
+/* marks an audio or video row in the wall-label list */
+.kindtag{
+  position:absolute;bottom:0;left:0;right:0;background:rgba(12,14,16,.72);
+  color:#fff;font-family:var(--display);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;text-align:center;padding:3px 4px;
+}

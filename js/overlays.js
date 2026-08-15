@@ -2,8 +2,38 @@
    OVERLAYS  --  the artwork card, the help sheet and toasts.
    ============================================================ */
 const overlayRoot = () => $("overlay-root");
-function closeOverlay() { overlayRoot().innerHTML = ""; needsRender = true; }
+
+/* The <video> and <audio> elements are shared with the museum itself - the
+   same element feeds the texture on the wall - so the card borrows one
+   while it is open and hands it back on the way out. It has to go back into
+   the document rather than be dropped, or the browser stops decoding and
+   the picture on the wall freezes. */
+function releaseOverlayMedia() {
+  const pool = $("media-pool");
+  overlayRoot().querySelectorAll("video, audio").forEach(el => {
+    el.removeAttribute("controls");
+    if (pool && el.parentNode !== pool) pool.appendChild(el);
+  });
+}
+function closeOverlay() {
+  releaseOverlayMedia();
+  overlayRoot().innerHTML = "";
+  needsRender = true;
+}
 function overlayOpen() { return overlayRoot().childElementCount > 0; }
+
+/* Keeps the card's own play/mute buttons in step when playback changes
+   from anywhere - the badge on the wall, or the native controls. */
+function syncOverlayMediaButtons(artId) {
+  const card = overlayRoot().querySelector(".card[data-art-id='" + artId + "']");
+  if (!card) return;
+  const art = State.art.find(a => a.id === artId);
+  if (!art) return;
+  const play = card.querySelector("[data-media-play]");
+  const mute = card.querySelector("[data-media-mute]");
+  if (play) play.textContent = mediaPlaying(art) ? "Pause" : "Play";
+  if (mute) mute.textContent = mediaMuted(art) ? "Sound on" : "Sound off";
+}
 
 function openArtwork(frame) {
   if (document.pointerLockElement) document.exitPointerLock();
@@ -22,28 +52,88 @@ function openArtwork(frame) {
     ? '<span class="tag">' + waiting + ' more awarded · ' + MAX_VISIBLE_STICKERS + ' shown at a time</span>'
     : "";
 
+  const kind = artKind(a);
+  const playable = isPlayable(a) && !!a.media;
+
+  /* The work first and large, its label underneath - the way a gallery
+     hangs it. The stage takes about three quarters of the screen; the
+     button below swaps it to the whole screen for a closer look. */
+  const mediaControls = playable
+    ? '<button class="btn btn-primary" type="button" data-media-play>Play</button>' +
+      (kind === "video" ? '<button class="btn" type="button" data-media-mute>Sound off</button>' : "")
+    : "";
+
   const veil = document.createElement("div");
   veil.className = "veil";
   veil.innerHTML =
-    '<div class="card" style="position:relative">' +
+    '<div class="card" data-art-id="' + a.id + '">' +
       '<button class="chip close" type="button" data-close>Close</button>' +
-      '<figure><img alt=""></figure>' +
+      '<div class="stage"><div class="stage-inner"></div></div>' +
       '<div class="meta">' +
-        '<div class="accession-line">' + pad3(num) + (frame.isFeature ? ' &middot; Featured work' : '') + '</div>' +
-        '<h2></h2>' +
-        '<p class="by"></p>' +
+        '<div class="metatop">' +
+          '<div>' +
+            '<div class="accession-line">' + pad3(num) +
+              (frame.isFeature ? ' &middot; Featured work' : '') +
+              (playable ? ' &middot; ' + (kind === "audio" ? 'Audio' : 'Video') : '') + '</div>' +
+            '<h2></h2>' +
+            '<p class="by"></p>' +
+          '</div>' +
+          '<div class="mediabar">' + mediaControls +
+            '<button class="btn btn-quiet" type="button" data-expand>Fill the screen</button>' +
+          '</div>' +
+        '</div>' +
         '<div class="rule"></div>' +
         '<p class="desc"></p>' +
         '<div class="awards">' + (awards || '<span class="tag">No stickers yet</span>') + waitingNote + '</div>' +
       '</div>' +
     '</div>';
-  veil.querySelector("img").src = a.src;
+
+  const card = veil.querySelector(".card");
+  const stage = veil.querySelector(".stage-inner");
+
+  if (playable) {
+    /* Borrow the element the museum is already using, so the card and the
+       wall are never out of step with one another. */
+    const entry = mediaEntry(a);
+    const el = entry.el;
+    const wasPlaying = !el.paused, at = el.currentTime;
+    el.setAttribute("controls", "");
+    stage.appendChild(el);
+    /* Re-parenting keeps playback in every current browser, but restore the
+       position if one ever decides otherwise. */
+    if (Math.abs(el.currentTime - at) > 0.4) el.currentTime = at;
+    if (wasPlaying && el.paused) el.play().catch(() => {});
+    if (kind === "audio") {
+      const cover = document.createElement("img");
+      cover.alt = ""; cover.src = a.src; cover.className = "audio-cover";
+      stage.insertBefore(cover, el);
+    }
+  } else {
+    const im = document.createElement("img");
+    im.alt = ""; im.src = a.src;
+    stage.appendChild(im);
+  }
+
   veil.querySelector("h2").textContent = a.name || "Untitled";
   veil.querySelector(".by").textContent = a.author ? "by " + a.author : "Artist not named";
   veil.querySelector(".desc").textContent = a.desc || "No description was added for this piece.";
   veil.querySelectorAll(".awards svg").forEach(s => { s.style.width = "20px"; s.style.height = "20px"; s.style.verticalAlign = "-4px"; });
+
+  const expand = veil.querySelector("[data-expand]");
+  expand.addEventListener("click", () => {
+    const full = card.classList.toggle("is-full");
+    expand.textContent = full ? "Fit the window" : "Fill the screen";
+  });
+
+  if (playable) {
+    veil.querySelector("[data-media-play]").addEventListener("click", () => toggleMedia(a));
+    const mute = veil.querySelector("[data-media-mute]");
+    if (mute) mute.addEventListener("click", () => toggleMediaMute(a));
+  }
+
   veil.addEventListener("click", e => { if (e.target === veil || e.target.hasAttribute("data-close")) closeOverlay(); });
   overlayRoot().appendChild(veil);
+  syncOverlayMediaButtons(a.id);
 }
 
 function openHelp() {

@@ -11,9 +11,12 @@ function castFrom(v) {
   }
   if (!hits.length) return null;
   let o = hits[0].object;
+  /* Read the badge off the object actually struck, before walking up to the
+     frame it belongs to - otherwise a play button reads as its artwork. */
+  const control = o.userData.control || null;
   while (o && !o.userData.frame) o = o.parent;
   if (!o) return null;
-  return { frame: o.userData.frame, point: hits[0].point, distance: hits[0].distance };
+  return { frame: o.userData.frame, control: control, point: hits[0].point, distance: hits[0].distance };
 }
 
 function currentAim(e) {
@@ -36,6 +39,12 @@ function act(e) {
   if (stamp === "erase") {
     if (hit.sticker) { removeSticker(hit.sticker); return true; }
     return false;                      // no sticker there: treat as empty space
+  }
+  /* A button is a button, whichever sticker happens to be selected. */
+  if (hit.control && hit.frame) {
+    if (hit.control === "play") toggleMedia(hit.frame.art);
+    else if (hit.control === "mute") toggleMediaMute(hit.frame.art);
+    return true;
   }
   if (hit.frame) {
     if (stamp) placeSticker(hit.frame, hit.point);

@@ -115,6 +115,18 @@ function frameForArt(artId) {
   }
   return null;
 }
+/* Where a work sounds from. A track that hangs its own sleeve sounds from
+   its frame; one that only has a strip on the wall sounds from the work it
+   sits above. Without this fallback such a track had no position at all, so
+   it was permanently silent - it played, but you could never hear it. */
+function audioAnchorFrame(artId) {
+  const own = frameForArt(artId);
+  if (own) return own;
+  for (let i = 0; i < MusicPanels.length; i++) {
+    if (MusicPanels[i].art.id === artId) return MusicPanels[i].host;
+  }
+  return null;
+}
 function distanceToPlayer(frame) {
   if (!frame) return Infinity;
   const dx = frame.pos.x - Player.x, dz = frame.pos.z - Player.z;
@@ -145,7 +157,7 @@ function makeRoomForVideo(exceptId) {
   const playing = playingVideos(exceptId);
   const excess = playing.length - (MAX_PLAYING_VIDEOS - 1);
   if (excess <= 0) return;
-  playing.sort((a, b) => distanceToPlayer(frameForArt(b.art.id)) - distanceToPlayer(frameForArt(a.art.id)));
+  playing.sort((a, b) => distanceToPlayer(audioAnchorFrame(b.art.id)) - distanceToPlayer(audioAnchorFrame(a.art.id)));
   for (let i = 0; i < excess; i++) {
     playing[i].el.pause();
     toast("Paused " + (playing[i].art.name || "a video") + " — three videos at a time");
@@ -185,7 +197,7 @@ function updateMediaAudio(dt) {
     if (e.el.paused) return;
     const d = (openId !== null && String(e.art.id) === String(openId))
       ? -1                                        /* the open one sorts first */
-      : distanceToPlayer(frameForArt(e.art.id));
+      : distanceToPlayer(audioAnchorFrame(e.art.id));
     live.push({ e: e, d: d });
   });
   if (!live.length) return;

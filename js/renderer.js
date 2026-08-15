@@ -140,6 +140,10 @@ function frameLoop() {
       if (hit.control === "play") hint(hn, mediaPlaying(ca) ? "Click to pause" : "Click to play " + (ca.name || "this"));
       else hint(hn, mediaMuted(ca) ? "Click for sound" : "Click to mute");
     }
+    else if (near && hit.openArtId !== null && hit.openArtId !== undefined && !stamp) {
+      const tr = State.art.find(a => a.id === hit.openArtId);
+      hint(hn, (tr && tr.name ? tr.name : "Track") + " — click to read");
+    }
     else if (near && hoverFrame && stamp) hint(hn, "Click to award " + STAMPS[stamp].label.toLowerCase());
     else if (near && hoverFrame) hint(hn, (hoverFrame.art.name || "Untitled") + " — click to read");
     else hn.classList.remove("show");

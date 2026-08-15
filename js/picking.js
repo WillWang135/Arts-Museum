@@ -25,10 +25,11 @@ function castFrom(v) {
   const faded = o.material && o.material.transparent && o.material.opacity <= 0.08;
   const control = (o.userData.control && !faded) ? o.userData.control : null;
   const controlArtId = control ? o.userData.mediaArtId : null;
+  const openArtId = o.userData.openArtId !== undefined ? o.userData.openArtId : null;
   while (o && !o.userData.frame) o = o.parent;
   if (!o) return null;
   return { frame: o.userData.frame, control: control, controlArtId: controlArtId,
-           point: hits[0].point, distance: hits[0].distance };
+           openArtId: openArtId, point: hits[0].point, distance: hits[0].distance };
 }
 
 function currentAim(e) {
@@ -64,6 +65,11 @@ function act(e) {
     if (hit.control === "play") toggleMedia(target);
     else if (hit.control === "mute") toggleMediaMute(target);
     return true;
+  }
+  /* the body of a music strip opens the track it belongs to */
+  if (hit.openArtId !== null && hit.openArtId !== undefined && !stamp) {
+    const track = State.art.find(a => a.id === hit.openArtId);
+    if (track) { openArtwork(hit.frame, track); return true; }
   }
   if (hit.frame) {
     if (stamp) placeSticker(hit.frame, hit.point);

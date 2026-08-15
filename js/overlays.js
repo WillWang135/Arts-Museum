@@ -48,9 +48,12 @@ function syncOverlayMediaButtons(artId) {
   if (mute) mute.textContent = mediaMuted(art) ? "Sound on" : "Sound off";
 }
 
-function openArtwork(frame) {
+/* art defaults to whatever hangs in the frame. A track that only has a strip
+   on the wall passes itself instead, so it can be opened like anything else. */
+function openArtwork(frame, art) {
   if (document.pointerLockElement) document.exitPointerLock();
-  const a = frame.art;
+  const a = art || frame.art;
+  const isFeature = frame.isFeature && a === frame.art;
   const num = State.art.indexOf(a) + 1;
   const mine = State.stickers.filter(s => s.artId === a.id);
   const counts = {};
@@ -86,7 +89,7 @@ function openArtwork(frame) {
         '<div class="metatop">' +
           '<div>' +
             '<div class="accession-line">' + pad3(num) +
-              (frame.isFeature ? ' &middot; Featured work' : '') +
+              (isFeature ? ' &middot; Featured work' : '') +
               (playable ? ' &middot; ' + (kind === "audio" ? 'Audio' : 'Video') : '') + '</div>' +
             '<h2></h2>' +
             '<p class="by"></p>' +

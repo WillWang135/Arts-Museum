@@ -63,7 +63,9 @@ On a tablet: drag the left circle to walk, drag anywhere else to look, tap a wor
 
 **Stickers** — award <kbd>1</kbd> Wonderful work · <kbd>2</kbd> Amazing effort · <kbd>3</kbd> Excellent standard · <kbd>4</kbd> Standout achievement.
 
-**Audio and video** — nothing plays until someone presses play, and only one clip plays at a time, so a room full of screens never turns into a wall of noise. A clip loops once started; pausing it leaves it paused.
+**Audio and video** — nothing plays until someone presses play. Sound is local: loudest beside a work, fading to silence about 14 m away, and only the nearest three are ever audible at once. Three videos play at a time; starting a fourth stands down whichever is furthest off. A clip loops once started; pausing it leaves it paused.
+
+**Cover art** — an MP3 or MP4 can be given its own PNG or JPG from the setup screen. It becomes the picture on the wall and the poster before playback; the clip itself is untouched, and it stays optional.
 
 Stickers you place before publishing travel with the museum. Anything a student adds while exploring stays on their own device.
 
@@ -118,7 +120,7 @@ The `<script>` tags are ordinary ones rather than ES modules, because modules re
 | **Mouse won't turn the camera** | Some browsers refuse to hand it over. Hold the left button and drag instead — that always works. `Q` and `E` turn from the keyboard. |
 | **"THREE is not defined"** | A school filter is blocking the 3D library. The page tries three mirrors; to remove the dependency entirely, see SETUP.md. |
 | **Page opens blank** | The `css` and `js` folders aren't beside the HTML file. |
-| **Session feels slow to load** | Check the size in the share panel. Around 25 works lands near 3 MB; video is far heavier, so trim clips before adding them. Files over 40 MB are refused. |
+| **Session feels slow to load** | Check the size in the share panel. Around 25 works lands near 3 MB; video is far heavier, so trim clips before adding them. Files over 200 MB are refused. |
 | **A .mov won't play** | Chrome often cannot decode QuickTime. It still hangs and takes stickers, but shows a placeholder — re-export as MP4 (H.264). |
 
 ---

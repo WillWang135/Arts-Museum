@@ -10,7 +10,7 @@
   /* The veil's padding is part of the width budget: 96vw plus 24px of
      padding each side pushed the card off the right of a phone screen. */
   .veil{padding:12px}
-  .card{--stage:52vh;width:calc(100vw - 24px)}
+  .card{--meta-reserve:200px;--stage:min(52vh, calc(94vh - var(--meta-reserve)));width:calc(100vw - 24px)}
   .card.is-full{--stage:88vh;margin:-12px}
   .card .meta{padding:18px 18px 22px}
   .card .metatop{gap:14px}

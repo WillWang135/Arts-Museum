@@ -72,24 +72,31 @@
 /* artwork panel */
 .veil{
   position:fixed;inset:0;background:rgba(10,12,14,.72);backdrop-filter:blur(4px);
-  display:grid;place-items:center;padding:24px;pointer-events:auto;z-index:5;
+  display:grid;place-items:center;padding:12px 24px;pointer-events:auto;z-index:5;
   animation:fade .18s ease both;
 }
 @keyframes fade{from{opacity:0}to{opacity:1}}
 /* The work first and large, its label underneath. --stage keeps the media
-   near three quarters of the window; "Fill the screen" pushes it to all of
-   it. object-fit:contain does the rest, so nothing is cropped or stretched
-   whatever shape it is. */
+   around seventy percent of the window, which leaves the description and
+   the sticker tally on screen without scrolling for them. "Fill the screen"
+   pushes it to all of it. object-fit:contain does the rest, so nothing is
+   cropped or stretched whatever shape it is. */
 .card{
-  --stage:74vh;
+  /* Seventy percent of the window for the work, but never so much that the
+     label underneath gets pushed off the bottom - the description and the
+     sticker tally are the whole point of opening it. The reserve is what
+     that block needs; on a tall screen the work gets its full 70%, on a
+     short one it gives a little back instead of clipping. */
+  --meta-reserve:235px;
+  --stage:min(70vh, calc(94vh - var(--meta-reserve)));
   position:relative;
-  background:var(--plate);width:min(1240px,94vw);max-height:92vh;overflow:auto;
+  background:var(--plate);width:min(1240px,94vw);max-height:94vh;overflow:auto;
   display:block;
 }
 /* The veil pads its contents; cancel that with a matching negative margin
    so "fill the screen" really means the whole screen. */
 .card.is-full{--stage:100vh;width:100vw;max-height:100vh;margin:-24px}
-.card .stage{background:#EDEDE9;display:grid;place-items:center;padding:20px}
+.card .stage{background:#EDEDE9;display:grid;place-items:center;padding:14px}
 .card.is-full .stage{padding:0;background:#0B0D0F}
 .card .stage-inner{
   display:flex;flex-direction:column;align-items:center;gap:12px;
@@ -115,16 +122,20 @@
 
 .card .metatop{display:flex;gap:22px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
 .card .mediabar{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.card .meta{padding:26px 30px 26px;font-family:var(--body);display:flex;flex-direction:column}
+.card .meta{padding:16px 30px 18px;font-family:var(--body);display:flex;flex-direction:column}
 .card .accession-line{font-family:var(--display);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--viridian)}
-.card h2{font-family:var(--display);font-size:29px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:10px 0 0}
-.card .by{font-style:italic;color:var(--slate);margin:8px 0 0;font-size:16px}
-.card .rule{height:1px;background:var(--hairline);margin:20px 0}
-.card p.desc{margin:0;color:#2E3338;font-size:15px;line-height:1.62;white-space:pre-wrap}
-.card .awards{margin-top:auto;padding-top:22px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card h2{font-family:var(--display);font-size:25px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:6px 0 0}
+.card .by{font-style:italic;color:var(--slate);margin:5px 0 0;font-size:15px}
+.card .rule{height:1px;background:var(--hairline);margin:13px 0}
+.card p.desc{margin:0;color:#2E3338;font-size:14.5px;line-height:1.55;white-space:pre-wrap}
+.card .awards{margin-top:auto;padding-top:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .card .awards .tag{font-family:var(--display);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
 .card .awards svg{width:22px;height:22px}
-.card .close,.sheet .close{position:absolute;top:18px;right:18px}
+/* z-index is load-bearing. The stage image carries a filter, which makes it
+   a stacking context, and those paint alongside positioned elements in tree
+   order - so the picture covered this button and Close stopped working.
+   An explicit index keeps it on top of whatever the card ends up holding. */
+.card .close,.sheet .close{position:absolute;top:18px;right:18px;z-index:3}
 
 /* help sheet */
 .sheet{max-width:560px;background:var(--plate);padding:32px;font-family:var(--body)}

@@ -13,7 +13,8 @@ function castFrom(v) {
   let o = hits[0].object;
   /* Read the badge off the object actually struck, before walking up to the
      frame it belongs to - otherwise a play button reads as its artwork. */
-  const control = o.userData.control || null;
+  const faded = o.material && o.material.transparent && o.material.opacity <= 0.08;
+  const control = (o.userData.control && !faded) ? o.userData.control : null;
   while (o && !o.userData.frame) o = o.parent;
   if (!o) return null;
   return { frame: o.userData.frame, control: control, point: hits[0].point, distance: hits[0].distance };

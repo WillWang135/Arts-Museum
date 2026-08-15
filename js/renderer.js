@@ -119,6 +119,8 @@ function frameLoop() {
   updateDaylight(dt, t);
   pulseStickers(t, dt);
   tickMediaTextures();          // only whatever is actually moving
+  updateMediaAudio(dt);         // nearest few playing works, faded by distance
+  updateMediaControlFade(dt);   // badges appear when you look at a work
 
   if (now - lastMap > 90) { lastMap = now; paintMinimap(); }
 

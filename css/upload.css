@@ -120,3 +120,12 @@ body.is-guest #clear-btn{display:none !important}
   color:#fff;font-family:var(--display);font-size:9.5px;letter-spacing:.14em;
   text-transform:uppercase;text-align:center;padding:3px 4px;
 }
+
+/* optional cover art, on audio and video rows only */
+.cover-btn,.cover-clear{
+  border:1px solid var(--hairline);background:var(--plate);padding:6px 10px;cursor:pointer;
+  font-family:var(--display);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--slate);white-space:nowrap;
+}
+.cover-btn:hover,.cover-clear:hover{border-color:var(--ink);color:var(--ink)}
+.cover-clear{border-color:transparent;color:var(--faint)}

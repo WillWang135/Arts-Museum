@@ -38,6 +38,29 @@ function fileKind(file) {
 function artKind(art) { return art && art.kind ? art.kind : "image"; }
 function isPlayable(art) { const k = artKind(art); return k === "audio" || k === "video"; }
 
+/* ---------- cover art ---------- */
+/* A clip carries two pictures. poster is the one the museum worked out for
+   itself - a sleeve for a track, a frame lifted from a video - and cover is
+   an optional one the teacher supplied. src is whichever is in use, so
+   everything downstream keeps reading a single field and needs no changes.
+   The clip in art.media is never touched by any of this. */
+function normaliseMediaArt(list) {
+  (list || []).forEach(a => {
+    if (!isPlayable(a)) return;
+    if (!a.poster) a.poster = a.src;      /* sessions saved before covers existed */
+    a.src = a.cover || a.poster;
+  });
+}
+function setArtCover(art, dataUrl) {
+  art.cover = dataUrl;
+  art.src = dataUrl;
+}
+function clearArtCover(art) {
+  delete art.cover;
+  art.src = art.poster || art.src;
+}
+function hasCover(art) { return !!(art && art.cover); }
+
 /* ---------- the live elements ---------- */
 /* Keyed by artwork id and kept outside the scene, so rebuilding the museum
    - switching the lighting, say - never interrupts what is playing. */
@@ -77,21 +100,65 @@ function mediaMuted(art) {
   return !!(e && e.el.muted);
 }
 
-/* ---------- playback, one at a time ---------- */
-function pauseAllMedia(exceptId) {
-  Object.keys(MediaEls).forEach(id => {
-    if (String(id) === String(exceptId)) return;
-    const e = MediaEls[id];
-    if (!e.el.paused) e.el.pause();
-  });
+/* ---------- how loud, and how many ---------- */
+/* Sound is local to where you are standing. Full volume up close, silent by
+   the time you have crossed the rotunda - its inner wall sits at about 13.7
+   metres - so a track belongs to its own room rather than the whole museum. */
+const AUDIO_NEAR = 3.0;            /* full volume within this many metres */
+const AUDIO_FAR = 14.0;            /* silent from here out */
+const MAX_AUDIBLE = 3;             /* nearest few only, however many are playing */
+const MAX_PLAYING_VIDEOS = 3;      /* decoding more than this bogs a laptop down */
+
+function frameForArt(artId) {
+  for (let i = 0; i < Frames.length; i++) {
+    if (Frames[i].art && Frames[i].art.id === artId) return Frames[i];
+  }
+  return null;
+}
+function distanceToPlayer(frame) {
+  if (!frame) return Infinity;
+  const dx = frame.pos.x - Player.x, dz = frame.pos.z - Player.z;
+  return Math.sqrt(dx * dx + dz * dz);
+}
+function distanceGain(d) {
+  if (d <= AUDIO_NEAR) return 1;
+  if (d >= AUDIO_FAR) return 0;
+  const t = (AUDIO_FAR - d) / (AUDIO_FAR - AUDIO_NEAR);
+  return t * t;                    /* eases away rather than trailing off flatly */
+}
+/* the artwork whose enlarged view is open, if any - always fully audible,
+   since you are looking straight at it however far off it hangs */
+function openArtworkId() {
+  const card = $("overlay-root").querySelector(".card[data-art-id]");
+  return card ? +card.dataset.artId : null;
+}
+
+function playingVideos(exceptId) {
+  return Object.keys(MediaEls).map(id => MediaEls[id]).filter(e =>
+    e.kind === "video" && !e.el.paused && String(e.art.id) !== String(exceptId));
+}
+
+/* Three videos decoding at once is plenty. Starting a fourth stands the
+   furthest one down rather than refusing - it keeps its place and can be
+   started again later. */
+function makeRoomForVideo(exceptId) {
+  const playing = playingVideos(exceptId);
+  const excess = playing.length - (MAX_PLAYING_VIDEOS - 1);
+  if (excess <= 0) return;
+  playing.sort((a, b) => distanceToPlayer(frameForArt(b.art.id)) - distanceToPlayer(frameForArt(a.art.id)));
+  for (let i = 0; i < excess; i++) {
+    playing[i].el.pause();
+    toast("Paused " + (playing[i].art.name || "a video") + " — three videos at a time");
+  }
 }
 
 function playMedia(art) {
   const e = mediaEntry(art);
   if (!e) return;
   if (e.failed) { toast("This file will not play in this browser"); return; }
-  pauseAllMedia(art.id);                       /* never two soundtracks at once */
+  if (e.kind === "video") makeRoomForVideo(art.id);
   e.started = true;
+  e.el.volume = 0;                 /* fades up from silence, never pops on */
   const p = e.el.play();
   if (p && typeof p.catch === "function") {
     p.catch(() => {
@@ -104,6 +171,35 @@ function playMedia(art) {
     });
   }
   refreshMediaControls(art.id);
+}
+
+/* Runs every frame: the nearest few playing works are audible, in proportion
+   to how close you are, and everything else eases down to silence. Only
+   volume is touched - what is playing and what is paused is the visitor's
+   decision, and walking away never changes it. */
+function updateMediaAudio(dt) {
+  const openId = openArtworkId();
+  const live = [];
+  Object.keys(MediaEls).forEach(id => {
+    const e = MediaEls[id];
+    if (e.el.paused) return;
+    const d = (openId !== null && String(e.art.id) === String(openId))
+      ? -1                                        /* the open one sorts first */
+      : distanceToPlayer(frameForArt(e.art.id));
+    live.push({ e: e, d: d });
+  });
+  if (!live.length) return;
+  live.sort((a, b) => a.d - b.d);
+
+  for (let i = 0; i < live.length; i++) {
+    const el = live[i].e.el;
+    const target = i >= MAX_AUDIBLE ? 0 : distanceGain(live[i].d);
+    /* rises a little quicker than it falls, so walking up to a work is
+       responsive while walking away stays gentle */
+    const k = Math.min(1, dt * (target > el.volume ? 4.5 : 2.2));
+    const v = el.volume + (target - el.volume) * k;
+    el.volume = Math.max(0, Math.min(1, v));
+  }
 }
 
 function pauseMedia(art) {
@@ -307,7 +403,8 @@ function mediaIconTexture(name) {
   return t;
 }
 
-/* Repoint each badge at the icon matching what the clip is doing now. */
+/* Repoint each badge at the icon matching what the clip is doing now, and
+   swap a video between its cover and the clip itself. */
 function refreshMediaControls(artId) {
   if (artId === undefined || artId === null) return;
   for (let i = 0; i < Frames.length; i++) {
@@ -316,9 +413,44 @@ function refreshMediaControls(artId) {
     const playing = mediaPlaying(f.art);
     if (f.controls.play) f.controls.play.material.map = mediaIconTexture(playing ? "pause" : "play");
     if (f.controls.mute) f.controls.mute.material.map = mediaIconTexture(mediaMuted(f.art) ? "muted" : "unmuted");
+    refreshMediaSurface(f);
     needsRender = true;
   }
   syncOverlayMediaButtons(artId);
+}
+
+/* A video given its own cover shows that until it is first started, exactly
+   as a <video poster> behaves - so the wall and the enlarged view agree.
+   After that the frame keeps showing the clip, paused or not, rather than
+   snapping back to the cover every time somebody stops it. */
+function refreshMediaSurface(frame) {
+  if (!frame || !frame.mediaSurface || !frame.coverTex || !frame.videoTex) return;
+  const e = MediaEls[frame.art.id];
+  const showCover = !e || (!e.started && e.el.paused);
+  const want = showCover ? frame.coverTex : frame.videoTex;
+  if (frame.mediaSurface.material.map !== want) {
+    frame.mediaSurface.material.map = want;
+    frame.mediaSurface.material.needsUpdate = true;
+    needsRender = true;
+  }
+}
+
+/* Desktop keeps the badges out of the way until you look at the work; a
+   phone has no hover, so they simply stay put. */
+function updateMediaControlFade(dt) {
+  const touch = isTouchOnly();
+  for (let i = 0; i < Frames.length; i++) {
+    const f = Frames[i];
+    if (!f.controls) continue;
+    const target = touch ? 0.92 : (hoverFrame === f ? 0.95 : 0);
+    f.controls.opacity += (target - f.controls.opacity) * Math.min(1, dt * 9);
+    const o = f.controls.opacity;
+    [f.controls.play, f.controls.mute].forEach(m => {
+      if (!m) return;
+      m.material.opacity = o;
+      m.visible = o > 0.02;
+    });
+  }
 }
 
 /* ---------- reading a file at upload time ---------- */

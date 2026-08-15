@@ -22,6 +22,19 @@ function closeOverlay() {
 }
 function overlayOpen() { return overlayRoot().childElementCount > 0; }
 
+/* Closing has to work by tap as well as by click: a phone may never deliver
+   the click it is supposed to synthesise afterwards, which is what left the
+   Close button dead on mobile. onTap covers both without double-firing. */
+function wireVeil(veil) {
+  veil.addEventListener("click", e => {
+    if (e.target === veil) closeOverlay();
+  });
+  veil.querySelectorAll("[data-close]").forEach(btn => onTap(btn, e => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    closeOverlay();
+  }));
+}
+
 /* Keeps the card's own play/mute buttons in step when playback changes
    from anywhere - the badge on the wall, or the native controls. */
 function syncOverlayMediaButtons(artId) {
@@ -98,6 +111,13 @@ function openArtwork(frame) {
     const el = entry.el;
     const wasPlaying = !el.paused, at = el.currentTime;
     el.setAttribute("controls", "");
+    /* A supplied cover stands in until the clip is first started, which is
+       exactly what the poster attribute is for - so the enlarged view and
+       the frame on the wall show the same picture. */
+    if (kind === "video") {
+      if (a.cover) el.setAttribute("poster", a.cover);
+      else el.removeAttribute("poster");
+    }
     stage.appendChild(el);
     /* Re-parenting keeps playback in every current browser, but restore the
        position if one ever decides otherwise. */
@@ -131,7 +151,7 @@ function openArtwork(frame) {
     if (mute) mute.addEventListener("click", () => toggleMediaMute(a));
   }
 
-  veil.addEventListener("click", e => { if (e.target === veil || e.target.hasAttribute("data-close")) closeOverlay(); });
+  wireVeil(veil);
   overlayRoot().appendChild(veil);
   syncOverlayMediaButtons(a.id);
 }
@@ -151,7 +171,8 @@ function openHelp() {
         '<dt>Shift</dt><dd>Sprint \u2014 about twice walking speed for crossing the galleries.</dd>' +
         '<dt>Z / scroll</dt><dd>Zoom in on the detail of a sketch.</dd>' +
         '<dt>V</dt><dd>Swap between first person and following your avatar.</dd>' +
-        '<dt>Click a work</dt><dd>Read its name, artist and story.</dd>' +
+        '<dt>Click a work</dt><dd>Read its name, artist and story, shown large with the label underneath.</dd>' +
+        '<dt>Play button</dt><dd>Look at a video or a track and its controls appear in the corner. Sound follows you: loudest up close, fading to nothing as you walk away. Three videos play at a time.</dd>' +
         '<dt>1 2 3 4</dt><dd>Pick a sticker, then click beside a frame to award it. A work shows eight at a time; any beyond that are still counted, and appear as room frees up.</dd>' +
         '<dt>5</dt><dd>Eraser. Click a sticker to take it back off.</dd>' +
         '<dt>0</dt><dd>Put the stickers away.</dd>' +
@@ -159,7 +180,7 @@ function openHelp() {
       '</dl>' +
       '<p style="margin:22px 0 0;color:var(--slate);font-size:13.5px">On a phone or tablet, drag the left circle to walk and drag anywhere else to look. Tap a work to open it.</p>' +
     '</div>';
-  veil.addEventListener("click", e => { if (e.target === veil || e.target.hasAttribute("data-close")) closeOverlay(); });
+  wireVeil(veil);
   overlayRoot().appendChild(veil);
 }
 

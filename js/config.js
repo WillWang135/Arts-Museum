@@ -15,7 +15,7 @@ const APP_VERSION = "V1.1";
    one long data URL, so a single large clip can outweigh a whole class of
    drawings. Past this a file is refused with an explanation rather than
    locking the browser up while it encodes. */
-const MAX_MEDIA_MB = 40;
+const MAX_MEDIA_MB = 200;
 
 const SHARING = {
 

@@ -24,6 +24,7 @@ function paintPlan() {
 window.addEventListener("resize", paintPlan);
 
 function renderLabels() {
+  normaliseMediaArt(State.art);
   labelsEl.innerHTML = "";
   State.art.forEach((a, i) => {
     const row = document.createElement("div");
@@ -40,6 +41,11 @@ function renderLabels() {
       '</div>' +
       '<div class="label-actions">' +
         '<button class="feature-toggle" type="button">' + SVG.star + 'Feature</button>' +
+        (isPlayable(a)
+          ? '<button class="cover-btn" type="button">' +
+              (hasCover(a) ? 'Change cover' : 'Add cover') + '</button>' +
+            (hasCover(a) ? '<button class="cover-clear" type="button">Use default</button>' : '')
+          : '') +
         '<button class="remove-btn" type="button">Remove</button>' +
       '</div>';
     row.querySelector("img").src = a.src;
@@ -75,6 +81,40 @@ labelsEl.addEventListener("click", e => {
     State.art.forEach(x => x.featured = false);
     a.featured = !was;
     renderLabels();
+  } else if (e.target.closest(".cover-btn")) {
+    coverTargetId = id;
+    $("cover-input").click();
+  } else if (e.target.closest(".cover-clear")) {
+    const a = State.art.find(x => x.id === id);
+    if (a) clearArtCover(a);
+    renderLabels();
+  }
+});
+
+/* ---------- optional cover art for a clip ---------- */
+/* Part of the same list rather than a second upload flow: pick the clip's
+   row, choose a picture, and it becomes what hangs on the wall. The audio
+   or video file itself is never touched. */
+let coverTargetId = null;
+$("cover-input").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  const art = State.art.find(x => x.id === coverTargetId);
+  coverTargetId = null;
+  if (!file || !art) return;
+  if (fileKind(file) !== "image") {
+    alert("A cover needs to be a PNG or JPG.");
+    return;
+  }
+  try {
+    const small = shrink(await loadImg(await readAsDataURL(file)));
+    setArtCover(art, small.src);
+    /* A track has no shape of its own, so it takes the cover's. A video
+       keeps its own, or the clip would letterbox oddly on the wall. */
+    if (artKind(art) === "audio") { art.aw = small.w; art.ah = small.h; }
+    renderLabels();
+  } catch (err) {
+    alert("That image could not be read. Try a different PNG or JPG.");
   }
 });
 
@@ -142,8 +182,9 @@ async function buildArtwork(file, kind) {
 
   if (kind === "audio") {
     if (!await probeAudio(data)) throw new Error("decode");
+    const sleeve = audioCover(name);
     return { id: State.nextId++, kind: "audio", name: name, author: "", desc: "",
-             src: audioCover(name), media: data, aw: 1, ah: 1, featured: false };
+             src: sleeve, poster: sleeve, media: data, aw: 1, ah: 1, featured: false };
   }
 
   /* A .mov can carry a codec this browser will not open. It still becomes
@@ -151,9 +192,10 @@ async function buildArtwork(file, kind) {
      instead of a poster frame. */
   const info = await probeVideo(data);
   const usable = info.w > 0 && info.h > 0;
+  const poster = info.poster || videoFallbackCover(name);
   return {
     id: State.nextId++, kind: "video", name: name, author: "", desc: "",
-    src: info.poster || videoFallbackCover(name), media: data,
+    src: poster, poster: poster, media: data,
     aw: usable ? info.w : 16, ah: usable ? info.h : 9, featured: false
   };
 }

@@ -89,14 +89,27 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
   backing.position.z = 0.025; backing.receiveShadow = true; g.add(backing);
 
   /* A video hangs as the clip itself - one decoded frame while paused, live
-     while playing. Everything else, including the generated sleeve for a
-     track, is an ordinary picture. */
-  let tex = artKind(art) === "video" ? videoTextureFor(art) : null;
-  if (!tex) {
-    tex = new THREE.TextureLoader().load(art.src, () => { needsRender = true; });
-    tex.encoding = THREE.sRGBEncoding;
-    tex.anisotropy = maxAniso;
+     while playing. Everything else, including the sleeve for a track, is an
+     ordinary picture. A video given its own cover keeps both, and swaps
+     between them the first time somebody presses play. */
+  const stillTexture = () => {
+    const t = new THREE.TextureLoader().load(art.src, () => { needsRender = true; });
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = maxAniso;
+    return t;
+  };
+  let tex = null, coverTex = null, videoTex = null;
+  if (artKind(art) === "video") {
+    videoTex = videoTextureFor(art);
+    if (hasCover(art) && videoTex) {
+      coverTex = stillTexture();
+      const e = MediaEls[art.id];
+      tex = (e && e.started) ? videoTex : coverTex;
+    } else {
+      tex = videoTex;
+    }
   }
+  if (!tex) tex = stillTexture();
   const img = new THREE.Mesh(new THREE.PlaneGeometry(W, H),
     new THREE.MeshStandardMaterial({
       map: tex, roughness: 0.72, metalness: 0.0,
@@ -147,21 +160,23 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
      work like the controls on a player. They are ordinary meshes, so the
      same reticle that reads a wall label operates them. */
   if (isPlayable(art)) {
-    /* Tucked into the bottom corner of a video, the way a player puts them,
-       so they never sit over the picture. A track has nothing to obscure -
-       its sleeve is decoration - so its single button goes in the middle
-       where it reads as the obvious thing to press. */
-    const size = Math.min(0.26 * scale, H * 0.30, W * 0.22);
+    /* Small, and tucked into the bottom corner of a video the way a player
+       puts them, so they sit lightly over the work rather than competing
+       with it. A track has nothing to obscure - its sleeve is decoration -
+       so its single button goes in the middle, where it reads as the
+       obvious thing to press. */
+    const size = Math.min(0.16 * scale, H * 0.20, W * 0.15);
     const wantsMute = artKind(art) === "video";
-    const gap = size * 1.18;
+    const gap = size * 1.22;
     const xs = wantsMute
-      ? [W / 2 - size * 0.62 - gap, W / 2 - size * 0.62]
+      ? [W / 2 - size * 0.68 - gap, W / 2 - size * 0.68]
       : [0];
-    const y = wantsMute ? -H / 2 + size * 0.66 : 0;
+    const y = wantsMute ? -H / 2 + size * 0.72 : 0;
     const mk = (name, x) => {
       const b = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
         new THREE.MeshBasicMaterial({
           map: mediaIconTexture(name), transparent: true, depthWrite: false,
+          opacity: 0,                       // faded in on hover; see updateMediaControlFade
           polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
         }));
       b.position.set(x, y, 0.075);        // in front of the picture at 0.062
@@ -170,9 +185,13 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
       Pickables.push(b);
       return b;
     };
+    rec.mediaSurface = img;
+    rec.coverTex = coverTex;
+    rec.videoTex = videoTex;
     rec.controls = {
       play: mk(mediaPlaying(art) ? "pause" : "play", xs[0]),
-      mute: wantsMute ? mk(mediaMuted(art) ? "muted" : "unmuted", xs[1]) : null
+      mute: wantsMute ? mk(mediaMuted(art) ? "muted" : "unmuted", xs[1]) : null,
+      opacity: 0
     };
     rec.controls.play.userData.control = "play";
     rec.controls.play.userData.frame = rec;

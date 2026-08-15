@@ -60,7 +60,11 @@ $("join-input").addEventListener("input", e => {
   e.target.value = prettyCode(c);
   if ($("join-note").classList.contains("err")) setJoinNote("Six characters from your teacher.", "");
 });
-$("reenter-btn").addEventListener("click", enterMuseum);
+/* Wrapped rather than passed directly: enterMuseum lives in js/main.js,
+   which loads after this file. Naming it here at load time would throw and
+   take the rest of this file with it. The arrow defers the lookup to the
+   click, by which point every file is in. */
+$("reenter-btn").addEventListener("click", () => enterMuseum());
 $("leave-btn").addEventListener("click", () => {
   if (location.protocol === "about:") {
     State.guest = false;

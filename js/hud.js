@@ -50,4 +50,6 @@ $("map-btn").addEventListener("click", toggleMap);
 $("help-btn").addEventListener("click", openHelp);
 $("save-btn").addEventListener("click", () => { saveMuseum(); toast("Museum saved to your downloads"); });
 $("quality-btn").addEventListener("click", () => { quality = quality === "high" ? "low" : "high"; applyQuality(); });
-$("exit-btn").addEventListener("click", exitMuseum);
+/* Wrapped, not passed directly - exitMuseum lives in js/main.js, which
+   loads after this file. See the same note in js/join.js. */
+$("exit-btn").addEventListener("click", () => exitMuseum());

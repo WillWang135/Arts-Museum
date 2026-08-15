@@ -71,6 +71,28 @@ function buildFeatureWall(featured) {
   if (featured) hangArtwork(featured, new THREE.Vector3(0, 2.45, panelT / 2 + 0.02), new THREE.Vector3(0, 0, 1), 1.55, true);
 }
 
+/* Adds one media button to a frame, taking the next place in the row along
+   the bottom-left of the picture. Every media control in the museum is made
+   here, so they are all the same size and all in the same corner whatever
+   kind of work they belong to. */
+function makeFrameControl(frame, iconName) {
+  const size = frame.ctlSize;
+  const b = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({
+      map: mediaIconTexture(iconName), transparent: true, depthWrite: false,
+      opacity: 0,                       // eased in on hover; see updateMediaControlFade
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
+    }));
+  b.position.set(-frame.W / 2 + size * 0.60 + frame.ctlNext * (size * 1.08),
+                 -frame.H / 2 + size * 0.62,
+                 0.076);                // in front of the picture at 0.062
+  b.renderOrder = 3;
+  frame.ctlNext++;
+  frame.group.add(b);
+  Pickables.push(b);
+  return b;
+}
+
 /* ---------- hanging a work ---------- */
 function hangArtwork(art, pos, normal, scale, isFeature) {
   scale = scale || 1;
@@ -166,39 +188,24 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
 
   const rec = { group: g, art, pos: g.position.clone(), normal: normal.clone(), slots, scale, isFeature, OW, OH, W, H };
 
-  /* Play, and for video a sound toggle, sitting along the bottom of the
-     work like the controls on a player. They are ordinary meshes, so the
-     same reticle that reads a wall label operates them. */
-  /* Only video carries controls on the frame now. A track is worked from
-     its own panel on the wall above - see js/music-panel.js. */
+  /* One size for every media control in the museum, and one place they go:
+     a row along the bottom-left of the picture, filled left to right. A
+     video that also hosts a track therefore lays its own two out first and
+     the track's third, rather than stacking them on top of each other. */
+  rec.ctlSize = Math.min(0.40 * scale, H * 0.42, W * 0.34);
+  rec.ctlNext = 0;
+
+  /* Only video carries controls on the frame itself. A track is worked from
+     the strip on the wall above and from a badge added there - see
+     js/music-panel.js - which lands in the same row as these. */
   if (artKind(art) === "video") {
-    /* Big enough to aim at with a reticle or a fingertip, still tucked into
-       the bottom corner the way a player puts them rather than sitting
-       across the middle of the work. */
-    const size = Math.min(0.21 * scale, H * 0.26, W * 0.19);
-    const wantsMute = true;
-    const gap = size * 1.16;
-    const xs = [W / 2 - size * 0.62 - gap, W / 2 - size * 0.62];
-    const y = -H / 2 + size * 0.66;
-    const mk = (name, x) => {
-      const b = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
-        new THREE.MeshBasicMaterial({
-          map: mediaIconTexture(name), transparent: true, depthWrite: false,
-          opacity: 0,                       // faded in on hover; see updateMediaControlFade
-          polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
-        }));
-      b.position.set(x, y, 0.075);        // in front of the picture at 0.062
-      b.renderOrder = 3;
-      g.add(b);
-      Pickables.push(b);
-      return b;
-    };
+    const mk = name => makeFrameControl(rec, name);
     rec.mediaSurface = img;
     rec.coverTex = coverTex;
     rec.videoTex = videoTex;
     rec.controls = {
-      play: mk(mediaPlaying(art) ? "pause" : "play", xs[0]),
-      mute: wantsMute ? mk(mediaMuted(art) ? "muted" : "unmuted", xs[1]) : null,
+      play: mk(mediaPlaying(art) ? "pause" : "play"),
+      mute: mk(mediaMuted(art) ? "muted" : "unmuted"),
       opacity: 0
     };
     rec.controls.play.userData.control = "play";

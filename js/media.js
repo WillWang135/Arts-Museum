@@ -225,6 +225,26 @@ function toggleMedia(art) {
   else playMedia(art);
 }
 
+/* Jump to wherever along the waveform was pointed at. Where the aim landed
+   is read from the strip's own geometry, so the same maths serves a mouse,
+   a reticle and a fingertip. Whether the track was running is not touched:
+   a stopped one moves and stays stopped. */
+function seekMediaTo(artId, mesh, worldPoint) {
+  const art = State.art.find(a => a.id === artId);
+  if (!art || !mesh || !worldPoint) return false;
+  const e = mediaEntry(art);
+  if (!e || !isFinite(e.el.duration) || e.el.duration <= 0) return false;
+
+  const w = mesh.geometry.parameters.width;
+  const local = mesh.worldToLocal(worldPoint.clone());
+  const frac = Math.max(0, Math.min(1, (local.x + w / 2) / w));
+  try { e.el.currentTime = frac * e.el.duration; } catch (err) { return false; }
+
+  refreshMusicPanel(artId);          /* repaint at once rather than on the next tick */
+  needsRender = true;
+  return true;
+}
+
 function toggleMediaMute(art) {
   const e = mediaEntry(art);
   if (!e) return;

@@ -141,6 +141,8 @@ function frameLoop() {
       if (hit.control === "play") hint(hn, mediaPlaying(ca) ? "Click to pause" : "Click to play " + (ca.name || "this"));
       else hint(hn, mediaMuted(ca) ? "Click for sound" : "Click to mute");
     }
+    else if (near && hit.seekArtId !== null && hit.seekArtId !== undefined && !stamp)
+      hint(hn, "Click along the waveform to skip");
     else if (near && hit.openArtId !== null && hit.openArtId !== undefined && !stamp) {
       const tr = State.art.find(a => a.id === hit.openArtId);
       hint(hn, (tr && tr.name ? tr.name : "Track") + " — click to read");

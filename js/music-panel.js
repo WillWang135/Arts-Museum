@@ -60,8 +60,7 @@ const AQUA = "150,214,201";   /* waveform - viridian's lighter cousin */
 const TITLE_F = "700 38px Helvetica, Arial, sans-serif";
 const TITLE_TRACK = 3.2;              /* letterspacing, as elsewhere in the museum */
 const SCROLL_SPEED = 33;              /* px per second - a slow drift, not a ticker */
-const SCROLL_HOLD_START = 2.2;        /* seconds held at the beginning */
-const SCROLL_HOLD_END = 1.3;          /* and at the end, before going back */
+const TITLE_GAP = 130;                /* clear air between one repeat and the next */
 
 function titleWidth(x, text) {
   return text.split("").reduce((w, ch) => w + x.measureText(ch).width + TITLE_TRACK, 0);
@@ -107,38 +106,43 @@ function drawScrollingTitle(rec, x, left, baseY, room, t) {
   const s = rec.titleStrip, sx = s.getContext("2d");
   sx.clearRect(0, 0, s.width, s.height);
 
-  const travel = full - room;
-  const travelTime = travel / SCROLL_SPEED;
-  const cycle = SCROLL_HOLD_START + travelTime + SCROLL_HOLD_END;
-  const p = ((t % cycle) + cycle) % cycle;
-  let offset;
-  if (p < SCROLL_HOLD_START) offset = 0;
-  else if (p < SCROLL_HOLD_START + travelTime) offset = (p - SCROLL_HOLD_START) * SCROLL_SPEED;
-  else offset = travel;
-
+  /* One continuous loop rather than a run-and-reset: the name is drawn
+     twice, a gap apart, and the pair slides by exactly one repeat before
+     wrapping. Because the second copy is already in view when the first
+     leaves, the wrap lands on identical pixels and never shows as a jump. */
+  const cycleW = full + TITLE_GAP;
+  const offset = ((t * SCROLL_SPEED) % cycleW + cycleW) % cycleW;
   paint(sx, -offset);
+  paint(sx, -offset + cycleW);
 
-  /* soften both ends of the strip so letters arrive and leave rather than
-     being sliced; the left edge only once something has moved past it */
+  /* a brass lozenge sitting in each gap, so it is obvious where one
+     repetition ends and the next begins */
+  const diamond = cx => {
+    if (cx < -14 || cx > s.width + 14) return;
+    sx.save();
+    sx.translate(cx, stripH / 2); sx.rotate(Math.PI / 4);
+    sx.fillStyle = "rgba(" + GOLD + ",.55)";
+    sx.fillRect(-4, -4, 8, 8);
+    sx.restore();
+  };
+  diamond(-offset + full + TITLE_GAP / 2);
+  diamond(-offset + full + TITLE_GAP / 2 - cycleW);
+
+  /* soften both ends so letters arrive and leave rather than being sliced */
   sx.globalCompositeOperation = "destination-out";
   const fade = 26;
-  if (offset > 1) {
-    const g1 = sx.createLinearGradient(0, 0, fade, 0);
-    g1.addColorStop(0, "rgba(0,0,0,1)"); g1.addColorStop(1, "rgba(0,0,0,0)");
-    sx.fillStyle = g1; sx.fillRect(0, 0, fade, stripH);
-  }
-  if (offset < travel - 1) {
-    const g2 = sx.createLinearGradient(s.width - fade, 0, s.width, 0);
-    g2.addColorStop(0, "rgba(0,0,0,0)"); g2.addColorStop(1, "rgba(0,0,0,1)");
-    sx.fillStyle = g2; sx.fillRect(s.width - fade, 0, fade, stripH);
-  }
+  const g1 = sx.createLinearGradient(0, 0, fade, 0);
+  g1.addColorStop(0, "rgba(0,0,0,1)"); g1.addColorStop(1, "rgba(0,0,0,0)");
+  sx.fillStyle = g1; sx.fillRect(0, 0, fade, stripH);
+  const g2 = sx.createLinearGradient(s.width - fade, 0, s.width, 0);
+  g2.addColorStop(0, "rgba(0,0,0,0)"); g2.addColorStop(1, "rgba(0,0,0,1)");
+  sx.fillStyle = g2; sx.fillRect(s.width - fade, 0, fade, stripH);
   sx.globalCompositeOperation = "source-over";
 
   x.drawImage(s, left, baseY - stripH / 2);
 
-  /* a small brass tick at the left margin: the mark the name starts from,
-     so you always know where the beginning is */
-  x.fillStyle = "rgba(" + GOLD + "," + (offset > 1 ? 0.8 : 0.35) + ")";
+  /* a hairline at the left margin, marking where the title area starts */
+  x.fillStyle = "rgba(" + GOLD + ",.45)";
   x.fillRect(left - 11, baseY - 13, 2.5, 26);
 }
 
@@ -353,26 +357,33 @@ function buildMusicPanel(hostFrame, art) {
   hostFrame.group.add(body);
   Pickables.push(body);
 
+  /* A strip over the waveform you can point at to jump through the track.
+     Taller than the bars themselves so it is comfortable to hit with a
+     reticle or a thumb, without the drawn waveform changing at all. */
+  const colLeftPx = PANEL_PAD + BAY_W + GUTTER;
+  const colRightPx = 1024 - PANEL_PAD - 26;
+  const seekW = ((colRightPx - colLeftPx) / 1024) * width;
+  const seekCX = (((colLeftPx + colRightPx) / 2) / 1024 - 0.5) * width;
+  const canvasH = Math.round(1024 / PANEL_ASPECT);
+  const seekTopPx = canvasH - 124, seekBotPx = canvasH - 6;
+  const seekH = ((seekBotPx - seekTopPx) / canvasH) * height;
+  const seekCY = (0.5 - ((seekTopPx + seekBotPx) / 2) / canvasH) * height;
+  const seek = new THREE.Mesh(new THREE.PlaneGeometry(seekW, seekH), musicHitMaterial());
+  seek.position.set(seekCX, y + seekCY, 0.070);   // in front of the body at 0.062
+  seek.userData.frame = hostFrame;
+  seek.userData.seekArtId = art.id;
+  hostFrame.group.add(seek);
+  Pickables.push(seek);
+
   /* And a badge on the work itself, so the track can be started from the
      picture as well as from the strip - whatever that picture happens to be:
      a sleeve, a supplied cover, a drawing it was paired with, or the piece
-     on the feature wall. It sits bottom-left, where a video's own controls
-     never go, so the two can share a frame without colliding. */
-  const aw = hostFrame.W || hostFrame.OW, ah = hostFrame.H || hostFrame.OH;
-  const bs = Math.min(0.21 * hostFrame.scale, ah * 0.26, aw * 0.19);
-  const badge = new THREE.Mesh(new THREE.PlaneGeometry(bs, bs),
-    new THREE.MeshBasicMaterial({
-      map: mediaIconTexture(mediaPlaying(art) ? "pause" : "play"),
-      transparent: true, depthWrite: false, opacity: 0,
-      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
-    }));
-  badge.position.set(-aw / 2 + bs * 0.62, -ah / 2 + bs * 0.66, 0.076);
-  badge.renderOrder = 3;
+     on the feature wall. It takes the next place in the frame's control row,
+     so a video hosting a track lays all three out side by side. */
+  const badge = makeFrameControl(hostFrame, mediaPlaying(art) ? "pause" : "play");
   badge.userData.control = "play";
   badge.userData.frame = hostFrame;
   badge.userData.mediaArtId = art.id;
-  hostFrame.group.add(badge);
-  Pickables.push(badge);
 
   const rec = { art: art, host: hostFrame, canvas: canvas, tex: tex,
                 panel: panel, button: btn, body: body, badge: badge, badgeOpacity: 0,
@@ -454,8 +465,15 @@ function planMusic(featured, rest) {
 
   /* A track never hosts another track: it already needs that stretch of wall
      for its own strip. Offering one as a host cost it its panel entirely,
-     which is why a museum of five songs only ever showed four. */
-  const hosts = hangs.filter(a => artKind(a) !== "audio");
+     which is why a museum of five songs only ever showed four.
+
+     Pictures are asked before videos. A video already carries a play and a
+     mute of its own, so hosting a track puts a third button in the same row
+     - it fits, but it is crowded, and there is usually a plain picture
+     going spare. */
+  const pictures = hangs.filter(a => artKind(a) === "image");
+  const videos = hangs.filter(a => artKind(a) === "video");
+  const hosts = pictures.concat(videos);
   if (featured && artKind(featured) !== "audio") hosts.push(featured);
 
   const pairs = {};        /* host artwork id -> the track sitting above it */

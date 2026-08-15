@@ -3,7 +3,22 @@
    ============================================================ */
 window.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
-  if (overlayOpen()) { if (k === "escape") closeOverlay(); return; }
+  if (overlayOpen()) {
+    if (k === "escape") { closeOverlay(); return; }
+    /* Space works the media in the open card, and only there - close it and
+       the key means nothing again. Left alone while a field or the browser's
+       own player has focus, so it never fights what you are typing or
+       double-toggles what the native controls already handle. */
+    if (k === " " || k === "spacebar") {
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ||
+                 el.tagName === "AUDIO" || el.tagName === "VIDEO" || el.isContentEditable)) return;
+      const id = openArtworkId();
+      const art = id === null ? null : State.art.find(a => a.id === id);
+      if (art && isPlayable(art)) { e.preventDefault(); toggleMedia(art); }
+    }
+    return;
+  }
   if (!running) return;
   keys[k] = true;
   if (k === "v") toggleView();

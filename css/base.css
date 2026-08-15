@@ -20,6 +20,10 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%}
+/* While the gallery is open the page behind it must not show through, on any
+   device: the pale paper of the setup screen reads as a white band wherever
+   the 3D view cannot quite reach. */
+body.in-museum{background:#0b0d0f;overflow:hidden}
 body{
   margin:0;background:var(--gallery);color:var(--ink);
   font-family:var(--body);font-size:15px;line-height:1.5;

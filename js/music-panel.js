@@ -4,16 +4,21 @@
    gets a strip of wall above a work instead: the title, a
    waveform that fills as the track runs, and one button.
 
-   Drawn as light rather than as an object - additive blending,
-   no panel behind it, nothing but the marks themselves - so it
-   reads as something projected onto the plaster rather than a
-   media player screwed to the wall.
+   One component, not four things side by side: a glass case
+   with a thin brass edge, a button bay on the left with its own
+   divider, then the title and the waveform stacked in what
+   remains. Warm gold for the name, a cooler aqua for the
+   waveform, so the two read apart at a glance.
+
+   The whole thing is painted to a canvas each tick, which is
+   what lets the waveform fill, a long title drift across, and
+   the play glyph follow the track - all from one repaint.
    ============================================================ */
 
 const MusicPanels = [];
 
-const PANEL_W_MIN = 1.9;           /* metres - readable from across a room */
-const PANEL_ASPECT = 4.2;          /* width : height */
+const PANEL_W_MIN = 2.05;          /* metres - readable from across a room */
+const PANEL_ASPECT = 4.0;          /* width : height */
 const PANEL_BARS = 56;             /* waveform columns */
 
 /* Every track gets the same waveform shape each time it is built, rather
@@ -41,10 +46,101 @@ function waveEnvelope(seedText) {
    waveform stacked in the space that remains. Long titles are clipped, so
    the divider holds whatever the track is called. */
 const PANEL_PAD = 10;
-const BAY_W = 176;            /* the button's own area */
+const BAY_W = 184;            /* the button's own area */
 const GUTTER = 26;
 const GOLD = "244,201,124";   /* title and frame - the museum's brass */
 const AQUA = "150,214,201";   /* waveform - viridian's lighter cousin */
+
+/* ---------- the title, and how a long one gets read ---------- */
+/* A name that fits is simply drawn. One that does not is eased leftwards at
+   a walking pace, held still at each end so you can read the beginning and
+   the end properly, then returned to the start. It is drawn onto its own
+   strip so both edges can be softened - text that fades out reads as more
+   to come, where a hard cut just reads as broken. */
+const TITLE_F = "700 38px Helvetica, Arial, sans-serif";
+const TITLE_TRACK = 3.2;              /* letterspacing, as elsewhere in the museum */
+const SCROLL_SPEED = 33;              /* px per second - a slow drift, not a ticker */
+const SCROLL_HOLD_START = 2.2;        /* seconds held at the beginning */
+const SCROLL_HOLD_END = 1.3;          /* and at the end, before going back */
+
+function titleWidth(x, text) {
+  return text.split("").reduce((w, ch) => w + x.measureText(ch).width + TITLE_TRACK, 0);
+}
+
+function drawScrollingTitle(rec, x, left, baseY, room, t) {
+  const text = (rec.art.name || "Untitled track").toUpperCase();
+  x.font = TITLE_F;
+  const full = titleWidth(x, text);
+
+  const paint = (ctx, originX) => {
+    ctx.font = TITLE_F;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(255,196,96,.40)";
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = "rgba(" + GOLD + ",.98)";
+    let tx = originX;
+    text.split("").forEach(ch => { ctx.fillText(ch, tx, ctx.canvas.height / 2); tx += ctx.measureText(ch).width + TITLE_TRACK; });
+    ctx.shadowBlur = 0;
+  };
+
+  if (full <= room) {                 /* it fits: leave it still */
+    rec.scrolls = false;
+    x.save();
+    x.textAlign = "left"; x.textBaseline = "middle";
+    x.shadowColor = "rgba(255,196,96,.40)"; x.shadowBlur = 5;
+    x.fillStyle = "rgba(" + GOLD + ",.98)";
+    let tx = left;
+    text.split("").forEach(ch => { x.fillText(ch, tx, baseY); tx += x.measureText(ch).width + TITLE_TRACK; });
+    x.restore();
+    x.shadowBlur = 0;
+    return;
+  }
+
+  rec.scrolls = true;
+  const stripH = 54;
+  if (!rec.titleStrip || rec.titleStrip.width !== Math.ceil(room)) {
+    rec.titleStrip = document.createElement("canvas");
+    rec.titleStrip.width = Math.max(8, Math.ceil(room));
+    rec.titleStrip.height = stripH;
+  }
+  const s = rec.titleStrip, sx = s.getContext("2d");
+  sx.clearRect(0, 0, s.width, s.height);
+
+  const travel = full - room;
+  const travelTime = travel / SCROLL_SPEED;
+  const cycle = SCROLL_HOLD_START + travelTime + SCROLL_HOLD_END;
+  const p = ((t % cycle) + cycle) % cycle;
+  let offset;
+  if (p < SCROLL_HOLD_START) offset = 0;
+  else if (p < SCROLL_HOLD_START + travelTime) offset = (p - SCROLL_HOLD_START) * SCROLL_SPEED;
+  else offset = travel;
+
+  paint(sx, -offset);
+
+  /* soften both ends of the strip so letters arrive and leave rather than
+     being sliced; the left edge only once something has moved past it */
+  sx.globalCompositeOperation = "destination-out";
+  const fade = 26;
+  if (offset > 1) {
+    const g1 = sx.createLinearGradient(0, 0, fade, 0);
+    g1.addColorStop(0, "rgba(0,0,0,1)"); g1.addColorStop(1, "rgba(0,0,0,0)");
+    sx.fillStyle = g1; sx.fillRect(0, 0, fade, stripH);
+  }
+  if (offset < travel - 1) {
+    const g2 = sx.createLinearGradient(s.width - fade, 0, s.width, 0);
+    g2.addColorStop(0, "rgba(0,0,0,0)"); g2.addColorStop(1, "rgba(0,0,0,1)");
+    sx.fillStyle = g2; sx.fillRect(s.width - fade, 0, fade, stripH);
+  }
+  sx.globalCompositeOperation = "source-over";
+
+  x.drawImage(s, left, baseY - stripH / 2);
+
+  /* a small brass tick at the left margin: the mark the name starts from,
+     so you always know where the beginning is */
+  x.fillStyle = "rgba(" + GOLD + "," + (offset > 1 ? 0.8 : 0.35) + ")";
+  x.fillRect(left - 11, baseY - 13, 2.5, 26);
+}
 
 function drawMusicPanel(rec, progress, t, playing) {
   const c = rec.canvas, x = c.getContext("2d");
@@ -97,7 +193,7 @@ function drawMusicPanel(rec, progress, t, playing) {
 
   /* ---- button bay, and the divider that keeps it clear ---- */
   const bayCX = bx + BAY_W / 2, cy = H / 2;
-  const r = 44;
+  const r = 47;
   x.beginPath(); x.arc(bayCX, cy, r, 0, 6.3);
   x.fillStyle = "rgba(255,226,170,.10)";
   x.fill();
@@ -129,7 +225,7 @@ function drawMusicPanel(rec, progress, t, playing) {
   /* ---- the right-hand column ---- */
   const colX = divX + GUTTER;
   const colW = (bx + bw) - colX - 26;
-  const titleY = by + 44;
+  const titleY = by + 46;
 
   /* elapsed / total, right-aligned on the title line, so the numbers and the
      name share one baseline rather than floating apart */
@@ -141,42 +237,30 @@ function drawMusicPanel(rec, progress, t, playing) {
   const e = MediaEls[rec.art.id];
   const dur = e && isFinite(e.el.duration) ? e.el.duration : 0;
   const timeText = clock(dur * progress) + " / " + clock(dur);
-  x.font = "500 21px Helvetica, Arial, sans-serif";
+  x.font = "500 22px Helvetica, Arial, sans-serif";
   x.textAlign = "right";
   x.fillStyle = "rgba(" + GOLD + ",.55)";
   x.fillText(timeText, colX + colW, titleY);
   const timeW = x.measureText(timeText).width;
 
   /* Warm gold, and only a whisper of bloom - a strong glow washed straight
-     through the letters and made the name hard to read. */
-  x.textAlign = "left";
-  x.font = "700 34px Helvetica, Arial, sans-serif";
-  x.shadowColor = "rgba(255,196,96,.42)";
-  x.shadowBlur = 5;
-  x.fillStyle = "rgba(" + GOLD + ",.98)";
-
+     through the letters and made the name hard to read. A name too long for
+     the space is drawn onto its own strip and eased across it, rather than
+     being cut off where the clock begins. */
   const room = colW - timeW - 26;
-  let title = (rec.art.name || "Untitled track").toUpperCase();
-  const track = 3;
-  const widthOf = s => s.split("").reduce((w, ch) => w + x.measureText(ch).width + track, 0);
-  if (widthOf(title) > room) {
-    while (title.length > 1 && widthOf(title + "…") > room) title = title.slice(0, -1);
-    title += "…";
-  }
-  let tx = colX;
-  title.split("").forEach(ch => { x.fillText(ch, tx, titleY); tx += x.measureText(ch).width + track; });
-  x.shadowBlur = 0;
+  drawScrollingTitle(rec, x, colX, titleY, room, t);
 
   /* the artist, quieter still, tucked under the name */
   if (rec.art.author) {
-    x.font = "italic 20px Georgia, serif";
-    x.fillStyle = "rgba(255,236,205,.42)";
-    x.fillText(rec.art.author.slice(0, 30), colX, titleY + 30);
+    x.font = "italic 21px Georgia, serif";
+    x.textAlign = "left";
+    x.fillStyle = "rgba(255,236,205,.44)";
+    x.fillText(rec.art.author.slice(0, 34), colX, titleY + 32);
   }
 
   /* ---- waveform ---- */
-  const waveY = by + bh - 52, maxH = 54;
-  const gap = 3.4;
+  const waveY = by + bh - 62, maxH = 84;
+  const gap = 3.2;
   const barW = Math.max(2.4, (colW - PANEL_BARS * gap) / PANEL_BARS);
   const played = Math.max(0, Math.min(1, progress));
   const head = played * PANEL_BARS;
@@ -269,8 +353,29 @@ function buildMusicPanel(hostFrame, art) {
   hostFrame.group.add(body);
   Pickables.push(body);
 
+  /* And a badge on the work itself, so the track can be started from the
+     picture as well as from the strip - whatever that picture happens to be:
+     a sleeve, a supplied cover, a drawing it was paired with, or the piece
+     on the feature wall. It sits bottom-left, where a video's own controls
+     never go, so the two can share a frame without colliding. */
+  const aw = hostFrame.W || hostFrame.OW, ah = hostFrame.H || hostFrame.OH;
+  const bs = Math.min(0.21 * hostFrame.scale, ah * 0.26, aw * 0.19);
+  const badge = new THREE.Mesh(new THREE.PlaneGeometry(bs, bs),
+    new THREE.MeshBasicMaterial({
+      map: mediaIconTexture(mediaPlaying(art) ? "pause" : "play"),
+      transparent: true, depthWrite: false, opacity: 0,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
+    }));
+  badge.position.set(-aw / 2 + bs * 0.62, -ah / 2 + bs * 0.66, 0.076);
+  badge.renderOrder = 3;
+  badge.userData.control = "play";
+  badge.userData.frame = hostFrame;
+  badge.userData.mediaArtId = art.id;
+  hostFrame.group.add(badge);
+  Pickables.push(badge);
+
   const rec = { art: art, host: hostFrame, canvas: canvas, tex: tex,
-                panel: panel, button: btn, body: body,
+                panel: panel, button: btn, body: body, badge: badge, badgeOpacity: 0,
                 env: waveEnvelope(art.name || String(art.id)), lastDraw: -1 };
   drawMusicPanel(rec, 0, 0, false);
   MusicPanels.push(rec);
@@ -294,10 +399,12 @@ function updateMusicPanels(dt, t) {
     const dur = e && e.el.duration ? e.el.duration : 0;
     const progress = dur ? (e.el.currentTime / dur) : 0;
 
-    if (playing) {
+    /* A long name keeps moving whether or not the track is running, so the
+       whole title can still be read on a stopped one. */
+    if (playing || rec.scrolls) {
       if (t - rec.lastDraw < 0.08) continue;
       rec.lastDraw = t;
-      drawMusicPanel(rec, progress, t, true);
+      drawMusicPanel(rec, progress, t, playing);
       needsRender = true;
     } else if (rec.lastDraw !== -2 || Math.abs((rec.shownProgress || 0) - progress) > 0.002) {
       /* settle into a still frame once, then leave it alone */
@@ -314,9 +421,25 @@ function updateMusicPanels(dt, t) {
    step whichever one you pressed. */
 function refreshMusicPanel(artId) {
   for (let i = 0; i < MusicPanels.length; i++) {
-    if (MusicPanels[i].art.id !== artId) continue;
-    MusicPanels[i].lastDraw = -1;      /* force a repaint on the next tick */
+    const rec = MusicPanels[i];
+    if (rec.art.id !== artId) continue;
+    rec.lastDraw = -1;                 /* force a repaint on the next tick */
+    if (rec.badge) rec.badge.material.map = mediaIconTexture(mediaPlaying(rec.art) ? "pause" : "play");
     needsRender = true;
+  }
+}
+
+/* The badge on the picture behaves like a video's controls: out of the way
+   until you look at the work, and always present on a touch screen. */
+function updateMusicBadgeFade(dt) {
+  const touch = isTouchOnly();
+  for (let i = 0; i < MusicPanels.length; i++) {
+    const rec = MusicPanels[i];
+    if (!rec.badge) continue;
+    const target = touch ? 0.92 : (hoverFrame === rec.host ? 0.95 : 0);
+    rec.badgeOpacity += (target - rec.badgeOpacity) * Math.min(1, dt * 9);
+    rec.badge.material.opacity = rec.badgeOpacity;
+    rec.badge.visible = rec.badgeOpacity > 0.02;
   }
 }
 

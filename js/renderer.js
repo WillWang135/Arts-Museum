@@ -122,6 +122,7 @@ function frameLoop() {
   updateMediaAudio(dt);         // nearest few playing works, faded by distance
   updateMediaControlFade(dt);   // badges appear when you look at a work
   updateMusicPanels(dt, t);     // waveforms fill as their tracks run
+  updateMusicBadgeFade(dt);     // the play badge on a track's picture
 
   if (now - lastMap > 90) { lastMap = now; paintMinimap(); }
 

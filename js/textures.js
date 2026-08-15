@@ -102,19 +102,57 @@ function blobTexture() {
   return blobTex;
 }
 
-function plaqueTexture(art, num) {
-  const c = cvs(640, 180), x = c.getContext("2d");
-  x.fillStyle = "#FBF8F1"; x.fillRect(0, 0, 640, 180);
-  x.strokeStyle = "#C7A85C"; x.lineWidth = 3; x.strokeRect(7, 7, 626, 166);
+/* The wall label grows to fit what is written on it, up to the width the
+   caller allows - a fixed card cut half the titles off. Its height never
+   changes, so the type is the same size on every label in the room; only
+   the card gets longer. Returns the aspect so the caller can match the mesh.
+
+   maxAspect is how wide the label may get relative to its own height, which
+   is how the caller stops a label reaching its neighbours. */
+const PLAQUE_H = 180;
+const PLAQUE_PAD = 26;
+const PLAQUE_MIN_W = 320;
+
+function plaqueTexture(art, num, maxAspect) {
+  const measure = cvs(8, 8).getContext("2d");
+  const TITLE_F = "700 40px Helvetica, Arial, sans-serif";
+  const AUTHOR_F = "italic 30px Georgia, serif";
+
+  const maxW = Math.max(PLAQUE_MIN_W, Math.round(PLAQUE_H * (maxAspect || 3.56)));
+  const room = maxW - PLAQUE_PAD * 2;
+
+  /* Trimmed to the room actually available rather than to a fixed number of
+     letters, so an ellipsis only appears when one is genuinely needed. */
+  const fit = (text, font) => {
+    measure.font = font;
+    if (measure.measureText(text).width <= room) return text;
+    let s = text;
+    while (s.length > 1 && measure.measureText(s + "…").width > room) s = s.slice(0, -1);
+    return s.replace(/[ ,;:.\-]+$/, "") + "…";
+  };
+
+  const title = fit(art.name || "Untitled", TITLE_F);
+  const author = fit(art.author || "Student artist", AUTHOR_F);
+
+  measure.font = TITLE_F;
+  const tw = measure.measureText(title).width;
+  measure.font = AUTHOR_F;
+  const aw = measure.measureText(author).width;
+
+  const W = Math.round(Math.min(maxW, Math.max(PLAQUE_MIN_W, Math.max(tw, aw) + PLAQUE_PAD * 2)));
+  const c = cvs(W, PLAQUE_H), x = c.getContext("2d");
+  x.fillStyle = "#FBF8F1"; x.fillRect(0, 0, W, PLAQUE_H);
+  x.strokeStyle = "#C7A85C"; x.lineWidth = 3; x.strokeRect(7, 7, W - 14, PLAQUE_H - 14);
   x.fillStyle = "#0E4C44"; x.font = "600 22px Helvetica, Arial, sans-serif";
-  x.fillText(pad3(num), 26, 44);
-  x.fillStyle = "#15181B"; x.font = "700 40px Helvetica, Arial, sans-serif";
-  x.fillText((art.name || "Untitled").slice(0, 30), 26, 92);
-  x.fillStyle = "#5C6470"; x.font = "italic 30px Georgia, serif";
-  x.fillText((art.author || "Student artist").slice(0, 34), 26, 138);
+  x.fillText(pad3(num), PLAQUE_PAD, 44);
+  x.fillStyle = "#15181B"; x.font = TITLE_F;
+  x.fillText(title, PLAQUE_PAD, 92);
+  x.fillStyle = "#5C6470"; x.font = AUTHOR_F;
+  x.fillText(author, PLAQUE_PAD, 138);
+
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding; t.anisotropy = maxAniso;
-  return t;
+  return { tex: t, aspect: W / PLAQUE_H };
 }
 
 const stickerCache = {};

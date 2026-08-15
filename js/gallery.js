@@ -128,13 +128,23 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
     bar.position.set(b[3], b[4], 0.045); bar.castShadow = true; g.add(bar);
   });
 
+  /* The label is as wide as its title needs, between a sensible minimum and
+     the width of the work above it. Capping it at the frame means a label
+     can never reach further across the wall than the piece it belongs to,
+     so it cannot run into a neighbour, a doorway or the wall's edge. */
   const num = State.art.indexOf(art) + 1;
-  const pw = 0.5 * Math.max(1, scale * 0.9), ph = pw * 0.28;
+  const ph = 0.14 * Math.max(1, scale * 0.9);
+  /* Never wider than the work above it - that is what keeps a label off its
+     neighbours - and not much past half of a large one either, or a long
+     title starts reading as a banner rather than a caption. */
+  const plateMax = Math.min(OW * 0.98, 1.25 * Math.max(1, scale * 0.9));
+  const plate = plaqueTexture(art, num, plateMax / ph);
+  const pw = ph * plate.aspect;
   const plaqueBack = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.015), MAT.mat);
   plaqueBack.position.set(0, -(OH / 2) - ph / 2 - 0.13, 0.012); g.add(plaqueBack);
   const plaque = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph),
     new THREE.MeshBasicMaterial({
-      map: plaqueTexture(art, num),
+      map: plate.tex,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
     }));
   plaque.position.set(0, -(OH / 2) - ph / 2 - 0.13, 0.030); g.add(plaque);   // backing ends at 0.0195
@@ -154,7 +164,7 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
     }
   });
 
-  const rec = { group: g, art, pos: g.position.clone(), normal: normal.clone(), slots, scale, isFeature, OW, OH };
+  const rec = { group: g, art, pos: g.position.clone(), normal: normal.clone(), slots, scale, isFeature, OW, OH, W, H };
 
   /* Play, and for video a sound toggle, sitting along the bottom of the
      work like the controls on a player. They are ordinary meshes, so the

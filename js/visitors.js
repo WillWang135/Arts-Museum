@@ -26,6 +26,7 @@ const VISITOR_LOOKS = [
 
 function buildVisitors() {
   Visitors.length = 0;
+  VisitorObjs.length = 0;
   if (!Frames.length) return;
 
   const spots = [];
@@ -72,15 +73,84 @@ function buildVisitors() {
     f.group.rotation.y = s.yaw;
     f.group.scale.setScalar(0.94 + ((i * 37) % 11) / 100);
     root.add(f.group);
-    Visitors.push({
+    const rec = {
       g: f.group, parts: f.parts,
       x: s.x, z: s.z, homeX: s.x, homeZ: s.z,
       yaw: s.yaw, targetYaw: s.yaw, baseYaw: s.yaw,
       state: "idle", timer: 1.5 + Math.random() * 7,
       walkT: 0, walkDur: 1, fromX: s.x, fromZ: s.z, toX: s.x, toZ: s.z,
-      phase: Math.random() * 6.3, seed: Math.random() * 6.3
-    });
+      phase: Math.random() * 6.3, seed: Math.random() * 6.3,
+      askedAt: -Infinity                      // for the move-aside cooldown
+    };
+    f.group.userData.visitor = rec;
+    Visitors.push(rec);
+    VisitorObjs.push(f.group);
   });
+}
+
+/* ---------- asking someone to step aside ---------- */
+/* Visitors block doorways and stand in front of the work you were heading
+   for. Clicking one sends it a short walk out of the way, using the same
+   gait it uses for its own wandering - nobody vanishes and reappears. */
+const VISITOR_REACH = 4.5;         /* metres - only somebody actually in your way */
+const VISITOR_COOLDOWN = 10000;    /* ms before the same person will move again */
+
+function visitorSpotIsFree(v, x, z) {
+  if (!canStand(x, z)) return false;
+  const pdx = x - Player.x, pdz = z - Player.z;
+  if (pdx * pdx + pdz * pdz < 1.44) return false;         /* not into the visitor */
+  for (let i = 0; i < Visitors.length; i++) {
+    const o = Visitors[i];
+    if (o === v) continue;
+    const dx = x - o.x, dz = z - o.z;
+    if (dx * dx + dz * dz < 1.0) return false;            /* nor onto each other */
+  }
+  return true;
+}
+
+function askVisitorToMove(v, now) {
+  if (now - v.askedAt < VISITOR_COOLDOWN) {
+    toast("They have only just moved — give them a moment");
+    return true;
+  }
+
+  /* Sideways relative to how you are facing them clears a path best, so try
+     that first, then further off, then anywhere reachable. */
+  let ax = v.x - Player.x, az = v.z - Player.z;
+  const len = Math.hypot(ax, az) || 1;
+  ax /= len; az /= len;
+  const px = -az, pz = ax;
+
+  const tries = [];
+  [1.7, 2.4].forEach(d => {
+    tries.push([v.x + px * d, v.z + pz * d]);
+    tries.push([v.x - px * d, v.z - pz * d]);
+  });
+  tries.push([v.x + ax * 2.0, v.z + az * 2.0]);           /* further down the room */
+  for (let a = 0; a < 8; a++) {
+    const th = a * Math.PI / 4;
+    tries.push([v.x + Math.cos(th) * 2.1, v.z + Math.sin(th) * 2.1]);
+  }
+
+  for (let i = 0; i < tries.length; i++) {
+    const nx = tries[i][0], nz = tries[i][1];
+    if (!visitorSpotIsFree(v, nx, nz)) continue;
+    v.fromX = v.x; v.fromZ = v.z;
+    v.toX = nx; v.toZ = nz;
+    v.walkDur = Math.max(0.85, Math.hypot(nx - v.x, nz - v.z) / 1.15);
+    v.walkT = 0;
+    v.state = "walk";
+    v.targetYaw = Math.atan2(nx - v.x, nz - v.z);
+    /* settle there rather than drifting back to where they were standing */
+    v.homeX = nx; v.homeZ = nz;
+    v.timer = 6 + Math.random() * 5;
+    v.askedAt = now;
+    toast("Excuse me — they step aside");
+    return true;
+  }
+
+  toast("There is nowhere for them to go");
+  return true;
 }
 
 function updateVisitors(dt, t) {

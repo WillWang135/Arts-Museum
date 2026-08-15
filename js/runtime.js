@@ -22,6 +22,7 @@ let needsRender = true;
 /* ---------- the visit ---------- */
 const Player = { x: 0, z: 9.6, yaw: 0, pitch: -0.03, vx: 0, vz: 0, third: false, bob: 0, moving: 0 };
 const Visitors = [];
+const VisitorObjs = [];        // their groups, so the reticle can pick them out
 const keys = Object.create(null);
 let avatar = null, avatarParts = null, raycaster = null;
 let running = false, locked = false, stamp = null;

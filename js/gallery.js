@@ -159,19 +159,17 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
   /* Play, and for video a sound toggle, sitting along the bottom of the
      work like the controls on a player. They are ordinary meshes, so the
      same reticle that reads a wall label operates them. */
-  if (isPlayable(art)) {
-    /* Small, and tucked into the bottom corner of a video the way a player
-       puts them, so they sit lightly over the work rather than competing
-       with it. A track has nothing to obscure - its sleeve is decoration -
-       so its single button goes in the middle, where it reads as the
-       obvious thing to press. */
-    const size = Math.min(0.16 * scale, H * 0.20, W * 0.15);
-    const wantsMute = artKind(art) === "video";
-    const gap = size * 1.22;
-    const xs = wantsMute
-      ? [W / 2 - size * 0.68 - gap, W / 2 - size * 0.68]
-      : [0];
-    const y = wantsMute ? -H / 2 + size * 0.72 : 0;
+  /* Only video carries controls on the frame now. A track is worked from
+     its own panel on the wall above - see js/music-panel.js. */
+  if (artKind(art) === "video") {
+    /* Big enough to aim at with a reticle or a fingertip, still tucked into
+       the bottom corner the way a player puts them rather than sitting
+       across the middle of the work. */
+    const size = Math.min(0.21 * scale, H * 0.26, W * 0.19);
+    const wantsMute = true;
+    const gap = size * 1.16;
+    const xs = [W / 2 - size * 0.62 - gap, W / 2 - size * 0.62];
+    const y = -H / 2 + size * 0.66;
     const mk = (name, x) => {
       const b = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
         new THREE.MeshBasicMaterial({
@@ -195,9 +193,11 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
     };
     rec.controls.play.userData.control = "play";
     rec.controls.play.userData.frame = rec;
+    rec.controls.play.userData.mediaArtId = art.id;
     if (rec.controls.mute) {
       rec.controls.mute.userData.control = "mute";
       rec.controls.mute.userData.frame = rec;
+      rec.controls.mute.userData.mediaArtId = art.id;
     }
   }
 
@@ -262,7 +262,7 @@ function disposeRoot() {
 }
 
 function buildMuseum() {
-  Frames.length = 0; Pickables.length = 0; StickerObjs.length = 0;
+  Frames.length = 0; Pickables.length = 0; StickerObjs.length = 0; MusicPanels.length = 0;
   Nav.zones.length = 0; Nav.boxes.length = 0; Nav.circles.length = 0;
   Anim.skies.length = 0; Anim.pools.length = 0; Anim.shafts.length = 0; Anim.ticker = null;
   disposeRoot();
@@ -270,16 +270,28 @@ function buildMuseum() {
   scene.add(root);
 
   const featured = State.art.find(a => a.featured) || State.art[0] || null;
-  const wall = State.art.filter(a => a !== featured);
-  const layout = computeLayout(Math.max(wall.length, 1));
+  const rest = State.art.filter(a => a !== featured);
+  /* Tracks without a cover do not take a slot of their own - they sit above
+     a work that is already hanging - so the floorplan is sized to what
+     actually goes on the walls. */
+  const music = planMusic(featured, rest);
+  const layout = computeLayout(Math.max(music.wall.length, 1));
 
   buildShell(layout.open);
   buildFeatureWall(featured);
   buildLights();
 
-  wall.forEach((art, i) => {
+  music.wall.forEach((art, i) => {
     const s = layout.slots[i % layout.slots.length];
     hangArtwork(art, new THREE.Vector3(s.x, G.ART_Y, s.z), new THREE.Vector3(s.nx, 0, s.nz).normalize(), 1, false);
+  });
+
+  /* Every track gets its strip: above its host, or above itself when it
+     had to hang its own sleeve. */
+  Frames.forEach(f => {
+    const guest = music.pairs[f.art.id];
+    if (guest) buildMusicPanel(f, guest);
+    else if (artKind(f.art) === "audio") buildMusicPanel(f, f.art);
   });
 
   restoreStickers();

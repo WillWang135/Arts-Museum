@@ -172,7 +172,8 @@ function openHelp() {
         '<dt>Z / scroll</dt><dd>Zoom in on the detail of a sketch.</dd>' +
         '<dt>V</dt><dd>Swap between first person and following your avatar.</dd>' +
         '<dt>Click a work</dt><dd>Read its name, artist and story, shown large with the label underneath.</dd>' +
-        '<dt>Play button</dt><dd>Look at a video or a track and its controls appear in the corner. Sound follows you: loudest up close, fading to nothing as you walk away. Three videos play at a time.</dd>' +
+        '<dt>Play button</dt><dd>Look at a video and its controls appear in the corner. A track has its own strip on the wall above a work, with a waveform that fills as it runs. Sound follows you: loudest up close, fading to nothing as you walk away. Three videos play at a time.</dd>' +
+        '<dt>Click a visitor</dt><dd>Ask somebody standing in your way to step aside. They will move again after ten seconds.</dd>' +
         '<dt>1 2 3 4</dt><dd>Pick a sticker, then click beside a frame to award it. A work shows eight at a time; any beyond that are still counted, and appear as room frees up.</dd>' +
         '<dt>5</dt><dd>Eraser. Click a sticker to take it back off.</dd>' +
         '<dt>0</dt><dd>Put the stickers away.</dd>' +

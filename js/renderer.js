@@ -121,6 +121,7 @@ function frameLoop() {
   tickMediaTextures();          // only whatever is actually moving
   updateMediaAudio(dt);         // nearest few playing works, faded by distance
   updateMediaControlFade(dt);   // badges appear when you look at a work
+  updateMusicPanels(dt, t);     // waveforms fill as their tracks run
 
   if (now - lastMap > 90) { lastMap = now; paintMinimap(); }
 
@@ -131,9 +132,14 @@ function frameLoop() {
     hoverFrame = near && hit.frame ? hit.frame : null;
     const r = $("reticle"), hn = $("hint");
     r.classList.toggle("aim", !!near);
-    if (near && stamp === "erase" && hit.sticker) hint(hn, "Click to remove this sticker");
-    else if (near && hit.control === "play") hint(hn, mediaPlaying(hoverFrame.art) ? "Click to pause" : "Click to play");
-    else if (near && hit.control === "mute") hint(hn, mediaMuted(hoverFrame.art) ? "Click for sound" : "Click to mute");
+    if (near && hit.visitor) hint(hn, performance.now() - hit.visitor.askedAt < VISITOR_COOLDOWN
+      ? "They have just moved" : "Click to ask them to move");
+    else if (near && stamp === "erase" && hit.sticker) hint(hn, "Click to remove this sticker");
+    else if (near && hit.control) {
+      const ca = State.art.find(a => a.id === hit.controlArtId) || hoverFrame.art;
+      if (hit.control === "play") hint(hn, mediaPlaying(ca) ? "Click to pause" : "Click to play " + (ca.name || "this"));
+      else hint(hn, mediaMuted(ca) ? "Click for sound" : "Click to mute");
+    }
     else if (near && hoverFrame && stamp) hint(hn, "Click to award " + STAMPS[stamp].label.toLowerCase());
     else if (near && hoverFrame) hint(hn, (hoverFrame.art.name || "Untitled") + " — click to read");
     else hn.classList.remove("show");

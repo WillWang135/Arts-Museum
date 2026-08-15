@@ -416,6 +416,7 @@ function refreshMediaControls(artId) {
     refreshMediaSurface(f);
     needsRender = true;
   }
+  refreshMusicPanel(artId);
   syncOverlayMediaButtons(artId);
 }
 

@@ -54,6 +54,7 @@ A domed rotunda with a glazed oculus, brass-trimmed walls and an LED title ring 
 | `Z` / scroll | Zoom in on detail |
 | `V` | First person ↔ follow your avatar |
 | Click a work | Read its name, artist and story — large, with the label underneath |
+| Click a visitor | Ask somebody in your way to step aside |
 | Play button on a work | Start or pause a video or track. Videos also get a sound toggle |
 | `1` `2` `3` `4` | Pick a sticker, then click beside a frame |
 | `5` / `0` | Eraser / put stickers away |
@@ -64,6 +65,8 @@ On a tablet: drag the left circle to walk, drag anywhere else to look, tap a wor
 **Stickers** — award <kbd>1</kbd> Wonderful work · <kbd>2</kbd> Amazing effort · <kbd>3</kbd> Excellent standard · <kbd>4</kbd> Standout achievement.
 
 **Audio and video** — nothing plays until someone presses play. Sound is local: loudest beside a work, fading to silence about 14 m away, and only the nearest three are ever audible at once. Three videos play at a time; starting a fourth stands down whichever is furthest off. A clip loops once started; pausing it leaves it paused.
+
+**Music** — a track does not hang in a frame. It gets a strip of wall above a work: title, one button, and a waveform that fills as it plays and settles when paused. Give it a cover and it hangs as a picture with the strip above that instead.
 
 **Cover art** — an MP3 or MP4 can be given its own PNG or JPG from the setup screen. It becomes the picture on the wall and the poster before playback; the clip itself is untouched, and it stays optional.
 
@@ -100,6 +103,7 @@ js/
   config.js               ← the only file most people edit
   state, codes, sessions        artwork list, join codes, session files
   media                         audio and video artworks, playback, cover art
+  music-panel                   the wall strip a track gets instead of a frame
   geometry, floorplan           room shape, shared by the 2D plan and 3D build
   upload, join, publish         the setup screen
   runtime                       variables the 3D files share

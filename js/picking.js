@@ -9,15 +9,26 @@ function castFrom(v) {
   if (sHits.length && (!hits.length || sHits[0].distance <= hits[0].distance + 0.2)) {
     return { sticker: sHits[0].object, point: sHits[0].point, distance: sHits[0].distance };
   }
+  /* Someone standing in front of a work is picked before it, so you can
+     ask them to move rather than clicking straight through them. */
+  const vHits = raycaster.intersectObjects(VisitorObjs, true);
+  if (vHits.length && vHits[0].distance <= VISITOR_REACH &&
+      (!hits.length || vHits[0].distance < hits[0].distance)) {
+    let vo = vHits[0].object;
+    while (vo && !vo.userData.visitor) vo = vo.parent;
+    if (vo) return { visitor: vo.userData.visitor, point: vHits[0].point, distance: vHits[0].distance };
+  }
   if (!hits.length) return null;
   let o = hits[0].object;
   /* Read the badge off the object actually struck, before walking up to the
      frame it belongs to - otherwise a play button reads as its artwork. */
   const faded = o.material && o.material.transparent && o.material.opacity <= 0.08;
   const control = (o.userData.control && !faded) ? o.userData.control : null;
+  const controlArtId = control ? o.userData.mediaArtId : null;
   while (o && !o.userData.frame) o = o.parent;
   if (!o) return null;
-  return { frame: o.userData.frame, control: control, point: hits[0].point, distance: hits[0].distance };
+  return { frame: o.userData.frame, control: control, controlArtId: controlArtId,
+           point: hits[0].point, distance: hits[0].distance };
 }
 
 function currentAim(e) {
@@ -41,10 +52,17 @@ function act(e) {
     if (hit.sticker) { removeSticker(hit.sticker); return true; }
     return false;                      // no sticker there: treat as empty space
   }
+  /* Somebody in the way is dealt with first - they are the reason you
+     cannot get to whatever is behind them. */
+  if (hit.visitor) return askVisitorToMove(hit.visitor, performance.now());
+
   /* A button is a button, whichever sticker happens to be selected. */
   if (hit.control && hit.frame) {
-    if (hit.control === "play") toggleMedia(hit.frame.art);
-    else if (hit.control === "mute") toggleMediaMute(hit.frame.art);
+    const target = (hit.controlArtId !== null && hit.controlArtId !== undefined)
+      ? State.art.find(a => a.id === hit.controlArtId) || hit.frame.art
+      : hit.frame.art;
+    if (hit.control === "play") toggleMedia(target);
+    else if (hit.control === "mute") toggleMediaMute(target);
     return true;
   }
   if (hit.frame) {

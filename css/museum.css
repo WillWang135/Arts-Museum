@@ -1,0 +1,139 @@
+/* ============================================================
+   MUSEUM  --  the 3D screen: HUD rails, reticle, minimap,
+   sticker tray, artwork card, help sheet, touch pad, toast.
+   ============================================================ */
+/* ---------- museum ---------- */
+#screen-museum{position:fixed;inset:0;background:#0b0d0f}
+#gl{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#gl.dragging{cursor:grabbing}
+.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--display)}
+.hud button{pointer-events:auto}
+
+.reticle{
+  position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;
+  opacity:.75;transition:opacity .2s,transform .2s;
+}
+.reticle::before,.reticle::after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px rgba(0,0,0,.6)}
+.reticle::before{left:9px;top:3px;width:2px;height:14px}
+.reticle::after{left:3px;top:9px;width:14px;height:2px}
+.reticle.aim{transform:scale(1.5);opacity:1}
+
+.hint{
+  position:absolute;left:50%;top:calc(50% + 26px);transform:translateX(-50%);
+  color:#fff;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  text-shadow:0 1px 6px rgba(0,0,0,.8);white-space:nowrap;opacity:0;transition:opacity .18s;
+}
+.hint.show{opacity:1}
+
+.rail{position:absolute;top:16px;display:flex;gap:8px}
+.rail-l{left:16px;flex-direction:column;align-items:flex-start}
+.rail-r{right:16px}
+.chip{
+  background:rgba(12,14,16,.62);border:1px solid rgba(255,255,255,.18);color:#fff;
+  border-radius:2px;padding:9px 13px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  cursor:pointer;backdrop-filter:blur(8px);transition:background .15s,border-color .15s;
+}
+.chip:hover{background:rgba(12,14,16,.85);border-color:rgba(255,255,255,.4)}
+.chip.on{background:var(--saffron);border-color:var(--saffron);color:#3A2A00;font-weight:700}
+.chip b{font-weight:700}
+
+#minimap{
+  position:absolute;left:16px;bottom:104px;width:190px;height:150px;
+  background:rgba(12,14,16,.6);border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:blur(8px);
+}
+
+/* sticker tray */
+.tray{
+  position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:8px;padding:9px 10px;
+  background:rgba(12,14,16,.62);border:1px solid rgba(255,255,255,.18);
+  border-radius:2px;backdrop-filter:blur(10px);
+}
+.tray .tray-label{
+  color:rgba(255,255,255,.55);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  padding:0 8px 0 4px;max-width:82px;line-height:1.25;
+}
+.stamp{
+  position:relative;width:48px;height:48px;border-radius:2px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.07);cursor:pointer;display:grid;place-items:center;
+  transition:transform .14s,background .14s,border-color .14s;
+}
+.stamp svg{width:26px;height:26px;display:block}
+.stamp .key{
+  position:absolute;top:2px;right:3px;font-size:9px;line-height:1;
+  color:rgba(255,255,255,.5);font-weight:700;letter-spacing:0;
+}
+.stamp.on .key{color:rgba(0,0,0,.45)}
+.stamp:hover{background:rgba(255,255,255,.16);transform:translateY(-2px)}
+.stamp.on{background:#fff;border-color:#fff;box-shadow:0 0 0 3px rgba(242,178,51,.55)}
+.stamp.on svg{transform:scale(1.08)}
+
+/* artwork panel */
+.veil{
+  position:fixed;inset:0;background:rgba(10,12,14,.72);backdrop-filter:blur(4px);
+  display:grid;place-items:center;padding:24px;pointer-events:auto;z-index:5;
+  animation:fade .18s ease both;
+}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.card{
+  background:var(--plate);max-width:940px;width:100%;max-height:88vh;overflow:auto;
+  display:grid;grid-template-columns:1.25fr 1fr;
+}
+.card figure{margin:0;background:#EDEDE9;display:grid;place-items:center;padding:26px}
+.card figure img{max-width:100%;max-height:60vh;box-shadow:0 6px 34px rgba(0,0,0,.28)}
+.card .meta{padding:30px 30px 26px;font-family:var(--body);display:flex;flex-direction:column}
+.card .accession-line{font-family:var(--display);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--viridian)}
+.card h2{font-family:var(--display);font-size:29px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:10px 0 0}
+.card .by{font-style:italic;color:var(--slate);margin:8px 0 0;font-size:16px}
+.card .rule{height:1px;background:var(--hairline);margin:20px 0}
+.card p.desc{margin:0;color:#2E3338;font-size:15px;line-height:1.62;white-space:pre-wrap}
+.card .awards{margin-top:auto;padding-top:22px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card .awards .tag{font-family:var(--display);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.card .awards svg{width:22px;height:22px}
+.card .close,.sheet .close{position:absolute;top:18px;right:18px}
+
+/* help sheet */
+.sheet{max-width:560px;background:var(--plate);padding:32px;font-family:var(--body)}
+.sheet h2{font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
+.keys{margin:20px 0 0;display:grid;grid-template-columns:auto 1fr;gap:11px 18px;align-items:baseline;font-size:14px}
+.keys dt{font-family:var(--display);font-size:11.5px;letter-spacing:.06em;font-weight:700;
+  border:1px solid var(--hairline);padding:3px 8px;justify-self:start;white-space:nowrap;background:#F6F6F2}
+.keys dd{margin:0;color:var(--slate)}
+
+/* touch */
+#touch{position:absolute;inset:0;pointer-events:none;display:none}
+.pad{position:absolute;bottom:96px;width:118px;height:118px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.07);
+  pointer-events:auto;touch-action:none}
+/* Nothing in the touch layer may sit invisibly over the gallery: a transparent
+   overlay blocks the mouse just as effectively as a visible one. */
+#touch>*:not(.pad){pointer-events:none !important}
+#pad-move{left:20px}
+.nub{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;
+  border-radius:50%;background:rgba(255,255,255,.5)}
+
+#museum-credit{
+  position:absolute;left:18px;bottom:16px;
+  font-family:var(--display);font-size:11px;letter-spacing:.11em;
+  color:rgba(255,255,255,.30);text-shadow:0 1px 3px rgba(0,0,0,.45);
+  pointer-events:none;user-select:none;
+}
+
+.toast{
+  position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+  background:rgba(12,14,16,.86);color:#fff;padding:9px 16px;border-radius:2px;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:0;transition:opacity .25s;
+}
+.toast.show{opacity:1}
+
+#loading{position:absolute;inset:0;display:grid;place-items:center;background:var(--gallery);z-index:30}
+#loading .bar{width:210px;height:2px;background:var(--hairline);overflow:hidden}
+#loading .bar i{display:block;height:100%;width:40%;background:var(--viridian);animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+#loading p{font-family:var(--display);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--slate);margin:16px 0 0}
+#loading .fail{max-width:420px;text-align:left}
+#loading .fail h3{font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0 0 10px}
+#loading .fail p{font-family:var(--body);font-size:14px;line-height:1.6;letter-spacing:0;text-transform:none;color:var(--slate);margin:0 0 12px}
+#loading .fail code{background:#F1F1ED;padding:1px 5px;font-size:12.5px;word-break:break-all}
+#loading .fail .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}

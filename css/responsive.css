@@ -1,0 +1,22 @@
+/* ============================================================
+   RESPONSIVE  --  narrow screens and reduced motion.
+   Loads last so these rules win on equal specificity.
+   ============================================================ */
+@media (max-width:860px){
+  .masthead{grid-template-columns:1fr;gap:24px;align-items:stretch}
+  .joinbox{width:auto;order:-1}
+  .wall-label{grid-template-columns:88px 1fr;gap:14px}
+  .label-actions{grid-column:1/-1;grid-auto-flow:column;justify-content:start;align-items:center}
+  .card{grid-template-columns:1fr}
+  .card figure img{max-height:38vh}
+  #minimap{display:none}
+  .plate{padding:36px 18px 0}
+  .dock{padding:12px 16px;flex-wrap:wrap}
+  .credit{order:-1;flex-basis:100%;margin-bottom:2px}
+  #museum-credit{left:14px;bottom:12px;font-size:10px}
+  .tray .tray-label{display:none}
+  .stamp{width:44px;height:44px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

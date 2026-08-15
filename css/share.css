@@ -1,0 +1,27 @@
+/* ============================================================
+   SHARE PANEL  --  the publish / join-code dialog.
+   ============================================================ */
+/* share / publish panel */
+.share{background:var(--plate);max-width:640px;width:100%;padding:32px;font-family:var(--body);max-height:88vh;overflow:auto}
+.share h2{font-family:var(--display);font-size:25px;font-weight:800;letter-spacing:-.025em;margin:0 0 6px}
+.share .lead{color:var(--slate);margin:0 0 20px;font-size:14.5px;line-height:1.55}
+.share label{display:block;font-family:var(--display);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);margin:0 0 7px}
+.share .titlefield{width:100%;border:1px solid var(--hairline);padding:11px 12px;font:inherit;color:var(--ink);border-radius:0;background:#FCFCFA}
+.share .titlefield:focus{outline:0;border-color:var(--viridian)}
+.bigcode{
+  font-family:var(--display);font-size:clamp(36px,8.5vw,54px);font-weight:800;
+  letter-spacing:.18em;text-indent:.18em;text-align:center;padding:24px 10px;margin:4px 0 0;
+  background:#F1F6F4;border:1px solid #D5E2DC;color:var(--viridian);
+}
+.copyrow{display:flex;gap:8px;margin-top:12px}
+.copyrow input{flex:1;min-width:0;border:1px solid var(--hairline);padding:10px 12px;font-size:12.5px;color:var(--slate);background:#FCFCFA;border-radius:0}
+.copyrow input:focus{outline:0;border-color:var(--viridian)}
+.meterbar{height:3px;background:var(--hairline);overflow:hidden;margin-top:18px}
+.meterbar i{display:block;height:100%;width:0;background:var(--viridian);transition:width .18s linear}
+.factline{display:flex;justify-content:space-between;gap:14px;font-size:12.5px;color:var(--slate);border-top:1px solid var(--hairline);padding:9px 0}
+.factline b{color:var(--ink);font-weight:600;text-align:right}
+.setup{font-size:13.5px;color:var(--slate);line-height:1.62}
+.setup code{background:#F1F1ED;padding:1px 5px;font-size:12.5px;word-break:break-all}
+.setup ol{padding-left:19px;margin:10px 0}
+.setup li{margin:7px 0}
+.share .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}

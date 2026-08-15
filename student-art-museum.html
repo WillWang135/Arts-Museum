@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Student Art Museum</title>
+
+<!-- Order matters: base sets the variables, responsive overrides last. -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/upload.css">
+<link rel="stylesheet" href="css/share.css">
+<link rel="stylesheet" href="css/museum.css">
+<link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+<!-- ============ UPLOAD ============ -->
+<div id="screen-upload" class="screen">
+  <div class="plate">
+    <header class="masthead">
+      <div class="mast-text">
+        <div class="eyebrow" id="mast-eyebrow">Exhibition setup</div>
+        <h1>Student Art&nbsp;Museum</h1>
+        <p class="standfirst" id="mast-standfirst">Add the artwork, write the wall labels, then walk the galleries. The floorplan below grows as you go.</p>
+        <div class="titlerow" id="titlerow">
+          <label for="museum-title">Exhibition title</label>
+          <input id="museum-title" class="titlefield-home" maxlength="60" autocomplete="off"
+                 placeholder="Student Art Museum">
+          <span class="titlehint">Shown on the display above the feature wall.</span>
+        </div>
+      </div>
+      <div class="joinbox" id="joinbox">
+        <span class="eyebrow">Have a join code?</span>
+        <input id="join-input" class="code-input" placeholder="ABC234" maxlength="9"
+               autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Join code">
+        <button class="btn btn-primary" id="join-btn" type="button">Join museum</button>
+        <p class="joinnote" id="join-note">Six characters from your teacher.</p>
+      </div>
+    </header>
+
+    <section class="session-card hidden" id="session-card">
+      <div class="eyebrow">You are visiting</div>
+      <h2 id="session-title">Student Art Museum</h2>
+      <p class="sub" id="session-meta"></p>
+      <div class="row">
+        <button class="btn btn-primary" id="reenter-btn" type="button">Enter museum</button>
+        <button class="btn btn-quiet" id="leave-btn" type="button">Leave this session</button>
+      </div>
+    </section>
+
+    <section class="plan-panel">
+      <canvas id="plan-canvas"></canvas>
+      <div class="plan-legend">
+        <span id="plan-status">Empty floorplan</span>
+        <span class="legend-key"><i class="k-art"></i>Artwork</span>
+        <span class="legend-key"><i class="k-feat"></i>Featured wall</span>
+      </div>
+    </section>
+
+    <section class="intake">
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add artwork images">
+        <strong>Drop artwork here</strong>
+        <span>PNG or JPG &middot; one at a time or the whole class at once</span>
+        <button class="btn btn-primary" id="browse-btn" type="button">Choose images</button>
+        <input id="file-input" type="file" accept="image/png,image/jpeg,image/jpg" multiple hidden>
+      </div>
+      <div id="labels" class="labels"></div>
+    </section>
+  </div>
+
+  <footer class="dock">
+    <span class="credit">Designed by Mr Wang - V1.0</span>
+    <span class="count" id="count-text">No artwork yet</span>
+    <input id="restore-input" type="file" accept="application/json,.json" hidden>
+    <button class="btn btn-quiet" id="restore-btn" type="button">Open saved museum</button>
+    <button class="btn btn-quiet hidden" id="clear-btn" type="button">Clear all</button>
+    <button class="btn hidden" id="share-btn" type="button">Share museum</button>
+    <button class="btn btn-primary" id="enter-btn" type="button" disabled>Enter museum</button>
+  </footer>
+  <div id="share-root"></div>
+</div>
+
+<!-- ============ MUSEUM ============ -->
+<div id="screen-museum" class="hidden">
+  <canvas id="gl"></canvas>
+
+  <div class="hud">
+    <div class="reticle" id="reticle"></div>
+    <div class="hint" id="hint"></div>
+
+    <div class="rail rail-l">
+      <button class="chip" id="view-btn" type="button">View: <b>First person</b></button>
+      <button class="chip" id="map-btn" type="button">Map</button>
+      <button class="chip hidden" id="code-chip" type="button">Code: <b>&mdash;</b></button>
+    </div>
+
+    <div class="rail rail-r">
+      <button class="chip" id="quality-btn" type="button">Lighting: <b>High</b></button>
+      <button class="chip" id="help-btn" type="button">Controls</button>
+      <button class="chip" id="save-btn" type="button">Save</button>
+      <button class="chip" id="exit-btn" type="button">Exit</button>
+    </div>
+
+    <canvas id="minimap" width="380" height="300"></canvas>
+
+    <div class="tray" id="tray">
+      <span class="tray-label">Award a sticker</span>
+      <button class="stamp" data-stamp="flower" type="button" title="Wonderful work"></button>
+      <button class="stamp" data-stamp="heart" type="button" title="Amazing effort"></button>
+      <button class="stamp" data-stamp="tick" type="button" title="Excellent standard"></button>
+      <button class="stamp" data-stamp="star" type="button" title="Standout achievement"></button>
+      <button class="stamp" data-stamp="erase" type="button" title="Remove a sticker"></button>
+    </div>
+
+    <div id="museum-credit">V1.0 - By Mr Wang</div>
+
+    <div class="toast" id="toast"></div>
+
+    <div id="touch">
+      <div class="pad" id="pad-move"><div class="nub" id="nub-move"></div></div>
+    </div>
+  </div>
+
+  <div id="loading"><div style="text-align:center"><div class="bar"><i></i></div><p>Hanging the exhibition</p></div></div>
+  <div id="overlay-root"></div>
+</div>
+
+<!-- Tried first so the library is usually cached before anyone opens the
+     gallery; js/three-loader.js falls back to other mirrors if it fails. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="window.__threeCdnFailed=true"></script>
+
+<!-- ============================================================
+     Plain <script> tags, deliberately: ES modules do not run from
+     a file:// page, and this file has to keep working when it is
+     simply double-clicked. They share one scope, so ORDER MATTERS
+     - each file may only rely on the ones listed above it.
+     ============================================================ -->
+
+<!-- settings you edit -->
+<script src="js/config.js"></script>
+
+<!-- shared data and helpers -->
+<script src="js/state.js"></script>
+<script src="js/codes.js"></script>
+<script src="js/sessions.js"></script>
+
+<!-- room shape, shared by the floorplan and the 3D build -->
+<script src="js/geometry.js"></script>
+<script src="js/floorplan.js"></script>
+
+<!-- the setup screen -->
+<script src="js/upload.js"></script>
+<script src="js/join.js"></script>
+<script src="js/publish.js"></script>
+
+<!-- the 3D museum -->
+<script src="js/three-loader.js"></script>
+<script src="js/runtime.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/materials.js"></script>
+<script src="js/props.js"></script>
+<script src="js/architecture.js"></script>
+<script src="js/title-ring.js"></script>
+<script src="js/gallery.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/visitors.js"></script>
+<script src="js/player.js"></script>
+<script src="js/stickers.js"></script>
+<script src="js/picking.js"></script>
+<script src="js/overlays.js"></script>
+<script src="js/renderer.js"></script>
+
+<!-- controls, and the door between the two screens -->
+<script src="js/input.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>

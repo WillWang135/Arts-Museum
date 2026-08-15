@@ -1,0 +1,66 @@
+/* ============================================================
+   BASE  --  palette, reset, shared type and buttons.
+   Every other stylesheet builds on the variables set here,
+   so this file must load first.
+   ============================================================ */
+:root{
+  --gallery:#FAFAF7;
+  --plate:#FFFFFF;
+  --ink:#15181B;
+  --slate:#5C6470;
+  --faint:#8A9099;
+  --viridian:#0E4C44;
+  --viridian-lift:#12665B;
+  --saffron:#F2B233;
+  --rose:#E8556D;
+  --hairline:#DCDDD7;
+  --shadow:0 1px 2px rgba(21,24,27,.05), 0 8px 24px rgba(21,24,27,.06);
+  --display:"Helvetica Neue",Helvetica,Arial,"Segoe UI",sans-serif;
+  --body:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--gallery);color:var(--ink);
+  font-family:var(--body);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;
+}
+button{font:inherit;color:inherit}
+.hidden{display:none !important}
+
+/* ---------- shared type ---------- */
+.eyebrow{
+  font-family:var(--display);font-size:11px;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--viridian);
+}
+h1{
+  font-family:var(--display);font-weight:800;letter-spacing:-.035em;
+  font-size:clamp(34px,6.5vw,62px);line-height:.94;margin:10px 0 0;
+}
+.standfirst{max-width:46ch;color:var(--slate);margin:14px 0 0;font-size:17px}
+.titlerow{margin:22px 0 0;max-width:34rem}
+.titlerow label{display:block;font-family:var(--display);font-size:11px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--viridian);margin:0 0 6px}
+.titlefield-home{
+  width:100%;border:0;border-bottom:1.5px solid var(--hairline);background:transparent;
+  padding:6px 2px;border-radius:0;color:var(--ink);
+  font-family:var(--display);font-size:23px;font-weight:700;letter-spacing:-.02em;
+}
+.titlefield-home:focus{outline:0;border-bottom-color:var(--viridian)}
+.titlefield-home::placeholder{color:#C6C9C3}
+.titlehint{display:block;font-size:12px;color:var(--faint);margin-top:7px}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:1px solid var(--hairline);background:var(--plate);border-radius:2px;
+  padding:11px 18px;cursor:pointer;font-family:var(--display);font-weight:600;
+  font-size:13px;letter-spacing:.04em;transition:background .15s,border-color .15s,color .15s,transform .1s;
+}
+.btn:hover{border-color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--viridian);outline-offset:2px}
+.btn-primary{background:var(--viridian);border-color:var(--viridian);color:#fff}
+.btn-primary:hover{background:var(--viridian-lift);border-color:var(--viridian-lift)}
+.btn-primary[disabled]{background:#C8CBC6;border-color:#C8CBC6;cursor:not-allowed}
+.btn-quiet{background:transparent;border-color:transparent;color:var(--slate);padding:11px 12px}
+.btn-quiet:hover{color:var(--ink);border-color:var(--hairline)}

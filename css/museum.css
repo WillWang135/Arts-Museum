@@ -113,25 +113,33 @@
 }
 /* the label block keeps its own paper, so it stays readable once scrolled to */
 .card .meta{background:var(--plate)}
-.card .stage{background:#EDEDE9;display:grid;place-items:center;padding:14px}
+/* place-items centres whatever the media turns out to be, at any ratio; the
+   minimum keeps a very small work sitting in a proper stage rather than a
+   thin band across the top of the card. */
+.card .stage{background:#EDEDE9;display:grid;place-items:center;padding:14px;min-height:180px}
 .card.is-full .stage{padding:0;background:#0B0D0F}
 .card .stage-inner{
   display:flex;flex-direction:column;align-items:center;gap:12px;
   width:100%;max-width:100%;
 }
-/* Give the media a box the size of the stage and let object-fit place the
-   picture inside it. max-height alone only ever caps - a small clip would
-   sit at its own tiny pixel size in the middle of the screen - while
-   forcing both sides would stretch it. contain does neither: it fills as
-   much of the box as the aspect ratio allows and never crops. */
+/* --stage is a ceiling, not a target. Left on auto, a replaced element takes
+   its own size and the two maxima only ever shrink it - and the browser
+   keeps the aspect ratio while doing so, whichever maximum bites. So a big
+   scan comes down to fit the viewing area, a small one is left at its own
+   size rather than being blown up into a soft mess, and nothing is ever
+   stretched or cropped. The stage hugs whatever it ends up with, which also
+   brings the label back up under a small work instead of stranding it below
+   a screenful of empty grey. */
 .card .stage img,.card .stage video{
-  display:block;width:100%;height:var(--stage);
-  object-fit:contain;object-position:center;
+  display:block;
+  width:auto;height:auto;
+  max-width:100%;
+  max-height:var(--stage);
 }
 .card .stage img{filter:drop-shadow(0 6px 30px rgba(0,0,0,.30))}
 .card.is-full .stage img{filter:none}
 /* a track shows its sleeve with the player sitting underneath */
-.card .stage img.audio-cover{height:calc(var(--stage) - 86px)}
+.card .stage img.audio-cover{max-height:calc(var(--stage) - 86px)}
 /* An <audio> element has no intrinsic height: leave it on auto and it
    collapses to nothing and the player disappears. Give it the height the
    browser draws its controls at, and stop flex shrinking it away. */

@@ -253,6 +253,29 @@ function toggleMediaMute(art) {
   refreshMediaControls(art.id);
 }
 
+function anyMediaPlaying() {
+  const ids = Object.keys(MediaEls);
+  for (let i = 0; i < ids.length; i++) if (!MediaEls[ids[i]].el.paused) return true;
+  return false;
+}
+
+/* The hush control: stop everything, everywhere, at once - but only stop it.
+   Each clip keeps where it had got to, and keeps the fact that somebody
+   started it, so pressing play on any one of them carries on from where it
+   was rather than starting over. Distance fading and the playback limits
+   need no special case: with nothing running there is nothing to fade or
+   count. Returns how many were actually silenced. */
+function pauseAllMedia() {
+  let n = 0;
+  Object.keys(MediaEls).forEach(id => {
+    const e = MediaEls[id];
+    if (!e.el.paused) { e.el.pause(); n++; }
+    refreshMediaControls(e.art.id);      /* every badge, strip and card follows */
+  });
+  refreshHushChip();
+  return n;
+}
+
 /* Called on the way out of the museum, and whenever the artwork list is
    replaced, so nothing carries on playing into a screen that no longer
    shows it. */
@@ -450,6 +473,14 @@ function refreshMediaControls(artId) {
   }
   refreshMusicPanel(artId);
   syncOverlayMediaButtons(artId);
+  refreshHushChip();
+}
+
+/* The hush chip lights while anything is running, so it reads as live rather
+   than as decoration, and dims again once the museum is quiet. */
+function refreshHushChip() {
+  const chip = $("hush-btn");
+  if (chip) chip.classList.toggle("on", anyMediaPlaying());
 }
 
 /* A video given its own cover shows that until it is first started, exactly

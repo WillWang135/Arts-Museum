@@ -286,12 +286,11 @@ function buildMuseum() {
   root = new THREE.Group();
   scene.add(root);
 
-  const featured = State.art.find(a => a.featured) || State.art[0] || null;
-  const rest = State.art.filter(a => a !== featured);
-  /* Tracks without a cover do not take a slot of their own - they sit above
-     a work that is already hanging - so the floorplan is sized to what
-     actually goes on the walls. */
-  const music = planMusic(featured, rest);
+  /* The one place that decides what hangs where. The floorplan asks the
+     same question, so map and museum can never disagree about the size of
+     the building. */
+  const music = hangingPlan();
+  const featured = music.featured;
   const layout = computeLayout(Math.max(music.wall.length, 1));
 
   buildShell(layout.open);

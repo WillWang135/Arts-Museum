@@ -73,6 +73,12 @@ onTap($("map-btn"), toggleMap);
 onTap($("help-btn"), openHelp);
 onTap($("save-btn"), () => { saveMuseum(); toast("Museum saved to your downloads"); });
 onTap($("quality-btn"), () => { quality = quality === "high" ? "low" : "high"; applyQuality(); });
+/* Silence the whole building. Everything keeps its place, so anything
+   started again picks up where it left off. */
+onTap($("hush-btn"), () => {
+  const n = pauseAllMedia();
+  toast(n ? "Paused " + n + (n === 1 ? " item" : " items") : "Nothing is playing");
+});
 /* Wrapped, not passed directly - exitMuseum lives in js/main.js, which
    loads after this file. See the same note in js/join.js. */
 onTap($("exit-btn"), () => exitMuseum());

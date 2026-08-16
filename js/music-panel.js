@@ -486,3 +486,21 @@ function planMusic(featured, rest) {
 
   return { wall: hangs.concat(orphans), pairs: pairs, orphans: orphans };
 }
+
+/* Which works actually take a place on a wall, which is not the same as how
+   many artworks there are: a track without a cover sits above another work
+   rather than claiming a slot of its own.
+
+   The floorplan and the 3D build must both ask this, or they disagree about
+   how big the museum is - the map promising side rooms full of work that the
+   museum never builds, because it was counting eight tracks that were only
+   ever going to hang above something else. */
+function hangingPlan() {
+  const featured = State.art.find(a => a.featured) || State.art[0] || null;
+  const rest = State.art.filter(a => a !== featured);
+  const music = planMusic(featured, rest);
+  return { featured: featured, wall: music.wall, pairs: music.pairs };
+}
+function hangingCount() {
+  return hangingPlan().wall.length;
+}

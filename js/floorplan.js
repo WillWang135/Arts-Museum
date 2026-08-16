@@ -14,7 +14,9 @@ function drawFloorplan(ctx, w, h, o) {
   const soft = dark ? "rgba(255,255,255,.26)" : "#DCDDD7";
   const fill = dark ? "rgba(255,255,255,.07)" : "#F4F4F0";
 
-  const n = State.art.filter(a => !a.featured).length;
+  /* what actually hangs, not simply every artwork - a coverless track
+     sits above another work and takes no wall slot of its own */
+  const n = hangingCount();
   const layout = computeLayout(Math.max(n, 1));
   const open = layout.open;
   const step = Math.PI * 2 / G.SEG;

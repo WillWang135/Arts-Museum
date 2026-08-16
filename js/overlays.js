@@ -182,6 +182,7 @@ function openHelp() {
         '<dt>5</dt><dd>Eraser. Click a sticker to take it back off.</dd>' +
         '<dt>0</dt><dd>Put the stickers away.</dd>' +
         '<dt>M</dt><dd>Show or hide the floorplan.</dd>' +
+        '<dt>Pause all</dt><dd>The chip under the map stops every track and video at once, wherever you are. Each one keeps its place, so starting it again carries on from there.</dd>' +
       '</dl>' +
       '<p style="margin:22px 0 0;color:var(--slate);font-size:13.5px">On a phone or tablet, drag the left circle to walk and drag anywhere else to look. Tap a work to open it.</p>' +
     '</div>';

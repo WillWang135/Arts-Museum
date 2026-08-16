@@ -16,7 +16,8 @@ function paintPlan() {
   drawFloorplan(ctx, w, h, { dark: false });
 
   const n = State.art.length;
-  const open = computeLayout(Math.max(n, 1)).open.filter(Boolean).length;
+  const hung = hangingCount();
+  const open = computeLayout(Math.max(hung, 1)).open.filter(Boolean).length;
   const rooms = open === 0 ? "Rotunda only" : "Rotunda + " + open + (open === 1 ? " wing" : " wings");
   const named = (State.session.title || "").trim();
   $("plan-status").textContent = n === 0 ? "Empty floorplan" : (named || rooms);

@@ -16,6 +16,9 @@
   .card .metatop{gap:14px}
   .card .mediabar{width:100%}
   .card .mediabar .btn{flex:1;min-width:0}
+  .queue{width:calc(100vw - 24px);max-height:86vh}
+  .queue-row{grid-template-columns:32px 40px 1fr auto;gap:10px;padding:10px}
+  .queue-head{padding:20px 20px 14px}
   #minimap{display:none}
   .plate{padding:36px 18px 0}
   .dock{padding:12px 16px;flex-wrap:wrap}

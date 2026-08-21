@@ -248,3 +248,52 @@
   position:fixed;left:0;bottom:0;width:1px;height:1px;
   overflow:hidden;opacity:0;pointer-events:none;z-index:-1;
 }
+
+/* ---------- the museum playlist ---------- */
+/* Built to match the strip it opens from: dark glass, a thin brass edge and
+   the current track lit, so it reads as part of the installation rather than
+   a player pasted over the gallery. */
+.queue{
+  position:relative;
+  width:min(560px,94vw);max-height:82vh;
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(30,34,38,.94),rgba(14,18,21,.96));
+  border:1.5px solid rgba(244,201,124,.42);
+  border-radius:3px;
+  box-shadow:0 24px 70px rgba(0,0,0,.55);
+  font-family:var(--body);
+}
+.queue-head{padding:26px 26px 16px;border-bottom:1px solid rgba(244,201,124,.20)}
+.queue-head .eyebrow{display:block;color:rgba(244,201,124,.72)}
+.queue-head h2{
+  font-family:var(--display);font-size:23px;font-weight:800;letter-spacing:-.02em;
+  margin:6px 0 0;color:rgba(255,244,226,.94);
+}
+.queue-list{overflow:auto;padding:8px 10px 14px}
+.queue-row{
+  display:grid;grid-template-columns:38px 46px 1fr auto;gap:14px;align-items:center;
+  width:100%;padding:10px 14px;margin:2px 0;
+  background:transparent;border:1px solid transparent;border-radius:2px;
+  color:rgba(255,244,226,.88);text-align:left;cursor:pointer;font:inherit;
+  transition:background .14s,border-color .14s;
+}
+.queue-row:hover{background:rgba(255,226,170,.09);border-color:rgba(244,201,124,.28)}
+.queue-row.is-current{background:rgba(244,201,124,.14);border-color:rgba(244,201,124,.55)}
+.qn{
+  font-family:var(--display);font-size:11px;letter-spacing:.14em;
+  color:rgba(244,201,124,.55);
+}
+.queue-row.is-current .qn{color:rgba(244,201,124,.95)}
+.qc{width:46px;height:46px;background:rgba(0,0,0,.35);overflow:hidden;display:block}
+.qc img{width:100%;height:100%;object-fit:cover;display:block}
+.qt{min-width:0;display:block}
+.qt b{
+  display:block;font-family:var(--display);font-size:15px;font-weight:700;
+  letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.qt i{display:block;font-size:12.5px;color:rgba(255,236,205,.5);margin-top:2px}
+.qs{
+  font-family:var(--display);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(150,214,201,.95);white-space:nowrap;
+}
+.queue .close{position:absolute;top:16px;right:16px;z-index:2}

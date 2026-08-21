@@ -474,6 +474,7 @@ function refreshMediaControls(artId) {
   }
   refreshMusicPanel(artId);
   syncOverlayMediaButtons(artId);
+  syncOpenPlaylistPanel();
   refreshHushChip();
 }
 

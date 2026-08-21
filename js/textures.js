@@ -109,14 +109,18 @@ function blobTexture() {
 
    maxAspect is how wide the label may get relative to its own height, which
    is how the caller stops a label reaching its neighbours. */
-const PLAQUE_H = 180;
-const PLAQUE_PAD = 26;
-const PLAQUE_MIN_W = 320;
+/* Read from across a room, not from a foot away: bigger type on a taller
+   card, more air around it, and a whiter ground under darker ink than the
+   first version had. The card still grows to its title and still truncates
+   past a sensible width - only the reading of it changed. */
+const PLAQUE_H = 210;
+const PLAQUE_PAD = 38;
+const PLAQUE_MIN_W = 420;
 
 function plaqueTexture(art, num, maxAspect) {
   const measure = cvs(8, 8).getContext("2d");
-  const TITLE_F = "700 40px Helvetica, Arial, sans-serif";
-  const AUTHOR_F = "italic 30px Georgia, serif";
+  const TITLE_F = "700 56px Helvetica, Arial, sans-serif";
+  const AUTHOR_F = "italic 38px Georgia, serif";
 
   const maxW = Math.max(PLAQUE_MIN_W, Math.round(PLAQUE_H * (maxAspect || 3.56)));
   const room = maxW - PLAQUE_PAD * 2;
@@ -141,14 +145,14 @@ function plaqueTexture(art, num, maxAspect) {
 
   const W = Math.round(Math.min(maxW, Math.max(PLAQUE_MIN_W, Math.max(tw, aw) + PLAQUE_PAD * 2)));
   const c = cvs(W, PLAQUE_H), x = c.getContext("2d");
-  x.fillStyle = "#FBF8F1"; x.fillRect(0, 0, W, PLAQUE_H);
-  x.strokeStyle = "#C7A85C"; x.lineWidth = 3; x.strokeRect(7, 7, W - 14, PLAQUE_H - 14);
-  x.fillStyle = "#0E4C44"; x.font = "600 22px Helvetica, Arial, sans-serif";
-  x.fillText(pad3(num), PLAQUE_PAD, 44);
-  x.fillStyle = "#15181B"; x.font = TITLE_F;
-  x.fillText(title, PLAQUE_PAD, 92);
-  x.fillStyle = "#5C6470"; x.font = AUTHOR_F;
-  x.fillText(author, PLAQUE_PAD, 138);
+  x.fillStyle = "#FFFDF8"; x.fillRect(0, 0, W, PLAQUE_H);
+  x.strokeStyle = "#C7A85C"; x.lineWidth = 3.5; x.strokeRect(8, 8, W - 16, PLAQUE_H - 16);
+  x.fillStyle = "#0B4038"; x.font = "700 26px Helvetica, Arial, sans-serif";
+  x.fillText(pad3(num), PLAQUE_PAD, 50);
+  x.fillStyle = "#0B0E11"; x.font = TITLE_F;             /* near-black on near-white */
+  x.fillText(title, PLAQUE_PAD, 112);
+  x.fillStyle = "#3F464F"; x.font = AUTHOR_F;            /* darker than the old slate */
+  x.fillText(author, PLAQUE_PAD, 166);
 
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding; t.anisotropy = maxAniso;

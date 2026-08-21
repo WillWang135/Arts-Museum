@@ -180,11 +180,11 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
      can never reach further across the wall than the piece it belongs to,
      so it cannot run into a neighbour, a doorway or the wall's edge. */
   const num = State.art.indexOf(art) + 1;
-  const ph = 0.14 * Math.max(1, scale * 0.9);
+  const ph = 0.195 * Math.max(1, scale * 0.9);
   /* Never wider than the work above it - that is what keeps a label off its
      neighbours - and not much past half of a large one either, or a long
      title starts reading as a banner rather than a caption. */
-  const plateMax = Math.min(OW * 0.98, 1.25 * Math.max(1, scale * 0.9));
+  const plateMax = Math.min(OW * 0.98, 1.45 * Math.max(1, scale * 0.9));
   const plate = plaqueTexture(art, num, plateMax / ph);
   const pw = ph * plate.aspect;
   const plaqueBack = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.015), MAT.mat);

@@ -48,6 +48,12 @@ function syncOverlayMediaButtons(artId) {
   if (mute) mute.textContent = mediaMuted(art) ? "Sound on" : "Sound off";
 }
 
+/* the open playlist follows the transport, whichever end it was worked from */
+function syncOpenPlaylistPanel() {
+  const veil = overlayRoot().querySelector(".veil");
+  if (veil && veil.__syncQueue) veil.__syncQueue();
+}
+
 /* art defaults to whatever hangs in the frame. A track that only has a strip
    on the wall passes itself instead, so it can be opened like anything else. */
 function openArtwork(frame, art) {
@@ -160,6 +166,69 @@ function openArtwork(frame, art) {
   wireVeil(veil);
   overlayRoot().appendChild(veil);
   syncOverlayMediaButtons(a.id);
+}
+
+/* The museum's music, as a list. Deliberately built like the strip it opens
+   from - dark glass, brass edge, the current track lit - rather than like a
+   web player dropped on top of the gallery. Closing it touches nothing that
+   is playing. */
+function openPlaylistPanel(rec) {
+  if (!rec) rec = featurePanel();
+  if (!rec) return;
+  if (document.pointerLockElement) document.exitPointerLock();
+
+  const tracks = playlistTracks();
+  const veil = document.createElement("div");
+  veil.className = "veil";
+  veil.innerHTML =
+    '<div class="queue">' +
+      '<button class="chip close" type="button" data-close>Close</button>' +
+      '<div class="queue-head">' +
+        '<span class="eyebrow">Museum playlist</span>' +
+        '<h2>' + tracks.length + (tracks.length === 1 ? ' track' : ' tracks') + '</h2>' +
+      '</div>' +
+      '<div class="queue-list"></div>' +
+    '</div>';
+
+  const list = veil.querySelector(".queue-list");
+  tracks.forEach((art, i) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "queue-row";
+    row.dataset.trackId = art.id;
+    row.innerHTML =
+      '<span class="qn">' + pad3(i + 1) + '</span>' +
+      '<span class="qc"><img alt=""></span>' +
+      '<span class="qt"><b></b><i></i></span>' +
+      '<span class="qs"></span>';
+    row.querySelector("img").src = art.src;          /* its cover, where it has one */
+    row.querySelector(".qt b").textContent = art.name || "Untitled track";
+    row.querySelector(".qt i").textContent = art.author || "";
+    list.appendChild(row);
+  });
+
+  const markCurrent = () => {
+    list.querySelectorAll(".queue-row").forEach(row => {
+      const isNow = +row.dataset.trackId === rec.art.id;
+      row.classList.toggle("is-current", isNow);
+      row.querySelector(".qs").textContent =
+        isNow ? (mediaPlaying(rec.art) ? "Playing" : "Paused") : "";
+    });
+  };
+  markCurrent();
+
+  list.addEventListener("click", e => {
+    const row = e.target.closest(".queue-row");
+    if (!row) return;
+    const art = State.art.find(a => a.id === +row.dataset.trackId);
+    /* remembered, so Previous still retraces a hand-picked jump */
+    if (art) playlistLoad(rec, art, true);
+    markCurrent();
+  });
+  veil.__syncQueue = markCurrent;
+
+  wireVeil(veil);
+  overlayRoot().appendChild(veil);
 }
 
 function openHelp() {

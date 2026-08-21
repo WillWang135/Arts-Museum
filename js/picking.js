@@ -29,6 +29,7 @@ function castFrom(v) {
      buttons always act on whatever is loaded now. */
   const panel = o.userData.panel || null;
   const viaPanel = panel && panel.art ? panel.art.id : null;
+  const controlMode = control === "mode" ? (o.userData.mode || null) : null;
   const controlArtId = control ? (viaPanel !== null ? viaPanel : (o.userData.mediaArtId !== undefined ? o.userData.mediaArtId : null)) : null;
   const openArtId = o.userData.open ? viaPanel : (o.userData.openArtId !== undefined ? o.userData.openArtId : null);
   const seekArtId = o.userData.seek ? viaPanel : (o.userData.seekArtId !== undefined ? o.userData.seekArtId : null);
@@ -37,6 +38,7 @@ function castFrom(v) {
   if (!o) return null;
   return { frame: o.userData.frame, control: control, controlArtId: controlArtId,
            openArtId: openArtId, seekArtId: seekArtId, object: struck, panel: panel,
+           controlMode: controlMode,
            point: hits[0].point, distance: hits[0].distance };
 }
 
@@ -70,7 +72,8 @@ function act(e) {
     /* the playlist keys act on the strip, not on any one track */
     if (hit.control === "next") { playlistNext(hit.panel); return true; }
     if (hit.control === "prev") { playlistPrev(hit.panel); return true; }
-    if (hit.control === "mode") { cyclePlaylistMode(hit.panel); return true; }
+    if (hit.control === "mode") { setPlaylistMode(hit.panel, hit.controlMode); return true; }
+    if (hit.control === "queue") { openPlaylistPanel(hit.panel); return true; }
     const target = (hit.controlArtId !== null && hit.controlArtId !== undefined)
       ? State.art.find(a => a.id === hit.controlArtId) || hit.frame.art
       : hit.frame.art;

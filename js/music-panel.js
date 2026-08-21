@@ -23,10 +23,16 @@ const MusicPanels = [];
    works the whole museum: previous, play, next, and a mode that
    decides what happens when a song runs out.
    ============================================================ */
-const PLAYLIST_BAY_W = 380;        /* the wider bay three buttons need */
+const PLAYLIST_BAY_W = 404;        /* wide enough for a transport row and a key row */
 const PLAYLIST_MODES = ["order", "repeat", "shuffle"];
 const PLAYLIST_LABEL = { order: "IN ORDER", repeat: "REPEAT", shuffle: "SHUFFLE" };
-const Playlist = { mode: "order", history: [] };
+/* said as a sentence, for the hint that appears when a key is looked at */
+const PLAYLIST_HINT = {
+  order:   "Play the tracks in order",
+  repeat:  "Repeat this track",
+  shuffle: "Shuffle the tracks",
+};
+const Playlist = { mode: "shuffle", history: [] };   /* shuffle by default */
 
 function playlistTracks() {
   return State.art.filter(a => artKind(a) === "audio" && a.media);
@@ -117,13 +123,17 @@ function playlistPrev(rec) {
   playlistLoad(rec, list[(cur - 1 + list.length) % list.length], false);
 }
 
-function cyclePlaylistMode(rec) {
-  const i = PLAYLIST_MODES.indexOf(Playlist.mode);
-  Playlist.mode = PLAYLIST_MODES[(i + 1) % PLAYLIST_MODES.length];
+function setPlaylistMode(rec, mode) {
+  if (PLAYLIST_MODES.indexOf(mode) === -1) return;
+  Playlist.mode = mode;
   applyPlaylistLoop(rec);
   if (rec) rec.lastDraw = -1;
-  toast("Playback: " + PLAYLIST_LABEL[Playlist.mode].toLowerCase());
+  toast("Playback: " + PLAYLIST_LABEL[mode].toLowerCase());
   needsRender = true;
+}
+function cyclePlaylistMode(rec) {
+  const i = PLAYLIST_MODES.indexOf(Playlist.mode);
+  setPlaylistMode(rec, PLAYLIST_MODES[(i + 1) % PLAYLIST_MODES.length]);
 }
 
 /* A clip only reaches its end when it is not looping, which is to say when
@@ -147,17 +157,29 @@ function panelLayout(rec) {
   const divX = bx + bayW;
   const colX = divX + GUTTER;
   const colRight = bx + bw - 26;
+
+  /* The playlist bay carries two rows: the transport above, and the mode
+     and queue keys beneath it. Moving those off the title line is what
+     gives a long song name the width it was short of. */
+  const transportY = rec.isPlaylist ? by + 88 : cy;
   const buttons = rec.isPlaylist
-    ? [{ name: "prev", cx: bx + bayW * 0.19, r: 34 },
-       { name: "play", cx: bx + bayW * 0.50, r: 44 },
-       { name: "next", cx: bx + bayW * 0.81, r: 34 }]
-    : [{ name: "play", cx: bx + bayW / 2, r: 47 }];
-  const CLOCK_W = 96, PILL_W = 138, PILL_H = 30;
-  const pill = { w: PILL_W, h: PILL_H,
-                 cx: colRight - CLOCK_W - 16 - PILL_W / 2, cy: by + 46 };
+    ? [{ name: "prev", cx: bx + bayW * 0.20, cy: transportY, r: 37 },
+       { name: "play", cx: bx + bayW * 0.50, cy: transportY, r: 45 },
+       { name: "next", cx: bx + bayW * 0.80, cy: transportY, r: 37 }]
+    : [{ name: "play", cx: bx + bayW / 2, cy: cy, r: 47 }];
+
+  const smallY = by + bh - 62;
+  const keys = rec.isPlaylist
+    ? [{ name: "mode", mode: "repeat",  cx: bx + bayW * 0.145, cy: smallY, r: 25 },
+       { name: "mode", mode: "order",   cx: bx + bayW * 0.382, cy: smallY, r: 25 },
+       { name: "mode", mode: "shuffle", cx: bx + bayW * 0.618, cy: smallY, r: 25 },
+       { name: "queue",                 cx: bx + bayW * 0.855, cy: smallY, r: 25 }]
+    : [];
+
+  const CLOCK_W = 96;
   return { canvasH, bayW, bx, by, bw, bh, cy, divX, colX, colRight,
-           colW: colRight - colX, buttons, pill,
-           titleRoom: (colRight - colX) - CLOCK_W - 20 - (rec.isPlaylist ? PILL_W + 16 : 0) };
+           colW: colRight - colX, buttons, keys,
+           titleRoom: (colRight - colX) - CLOCK_W - 20 };
 }
 
 const PANEL_W_MIN = 2.05;          /* metres - readable from across a room */
@@ -291,7 +313,8 @@ function drawScrollingTitle(rec, x, left, baseY, room, t) {
 
 /* A round brass-ringed key in the bay. The middle one is play or pause; the
    outer two step through the playlist. */
-function drawBayButton(x, b, cy, playing) {
+function drawBayButton(x, b, cyIgnored, playing) {
+  const cy = b.cy;
   x.beginPath(); x.arc(b.cx, cy, b.r, 0, 6.3);
   x.fillStyle = "rgba(255,226,170,.10)";
   x.fill();
@@ -330,31 +353,93 @@ function drawBayButton(x, b, cy, playing) {
   x.shadowBlur = 0;
 }
 
-/* The current mode, as a small brass pill. Three words rather than three
-   cryptic glyphs: it is read once and understood, which is worth more here
-   than the space a symbol would save. */
-function drawModePill(x, pill) {
-  const half = pill.w / 2, hh = pill.h / 2, r = hh;
-  x.beginPath();
-  x.moveTo(pill.cx - half + r, pill.cy - hh);
-  x.arcTo(pill.cx + half, pill.cy - hh, pill.cx + half, pill.cy + hh, r);
-  x.arcTo(pill.cx + half, pill.cy + hh, pill.cx - half, pill.cy + hh, r);
-  x.arcTo(pill.cx - half, pill.cy + hh, pill.cx - half, pill.cy - hh, r);
-  x.arcTo(pill.cx - half, pill.cy - hh, pill.cx + half, pill.cy - hh, r);
-  x.closePath();
-  x.fillStyle = "rgba(255,226,170,.10)";
-  x.fill();
-  x.lineWidth = 1.5;
-  x.strokeStyle = "rgba(" + GOLD + ",.45)";
-  x.stroke();
+/* The mode and queue keys: the icons a music player uses, at a size that
+   still reads on a wall. Only the mode in force is lit, so which one is
+   active is apparent without a word of explanation. */
+function drawPanelKey(x, k) {
+  const active = k.name === "mode" && Playlist.mode === k.mode;
+  const cy = k.cy, r = k.r;
 
-  x.font = "700 16px Helvetica, Arial, sans-serif";
-  x.textAlign = "center";
-  x.textBaseline = "middle";
-  x.fillStyle = "rgba(" + GOLD + ",.92)";
-  const label = PLAYLIST_LABEL[Playlist.mode] || "";
-  x.fillText(label, pill.cx + 1, pill.cy + 1);
-  x.textAlign = "left";
+  if (active) {
+    x.beginPath(); x.arc(k.cx, cy, r, 0, 6.3);
+    x.fillStyle = "rgba(" + GOLD + ",.22)";
+    x.fill();
+    x.lineWidth = 1.6;
+    x.strokeStyle = "rgba(" + GOLD + ",.72)";
+    x.stroke();
+  }
+
+  const on = active ? 0.98 : 0.42;
+  x.strokeStyle = "rgba(" + GOLD + "," + on + ")";
+  x.fillStyle = "rgba(" + GOLD + "," + on + ")";
+  x.lineWidth = 2.6;
+  x.lineCap = "round";
+  x.lineJoin = "round";
+  if (active) { x.shadowColor = "rgba(255,206,130,.55)"; x.shadowBlur = 7; }
+
+  const up = (px, py) => {
+    x.beginPath();
+    x.moveTo(px - 5, py + 5);
+    x.lineTo(px, py - 4);
+    x.lineTo(px + 5, py + 5);
+    x.closePath(); x.fill();
+  };
+  const down = (px, py) => {
+    x.beginPath();
+    x.moveTo(px - 5, py - 5);
+    x.lineTo(px, py + 4);
+    x.lineTo(px + 5, py - 5);
+    x.closePath(); x.fill();
+  };
+  const arrow = (px, py, dir) => {
+    x.beginPath();
+    x.moveTo(px - dir * 5, py - 5);
+    x.lineTo(px + dir * 4, py);
+    x.lineTo(px - dir * 5, py + 5);
+    x.closePath(); x.fill();
+  };
+
+  if (k.mode === "repeat") {
+    /* A loop broken at two corners, each end turning back on itself. The
+       first attempt closed the loop and read as a plain box on the wall;
+       the two arrowheads are what say "round again". */
+    x.beginPath();
+    x.moveTo(k.cx - 7, cy - 8); x.lineTo(k.cx + 6, cy - 8);
+    x.arcTo(k.cx + 11, cy - 8, k.cx + 11, cy - 3, 5);
+    x.lineTo(k.cx + 11, cy - 1); x.stroke();
+    down(k.cx + 11, cy + 3);
+    x.beginPath();
+    x.moveTo(k.cx + 7, cy + 8); x.lineTo(k.cx - 6, cy + 8);
+    x.arcTo(k.cx - 11, cy + 8, k.cx - 11, cy + 3, 5);
+    x.lineTo(k.cx - 11, cy + 1); x.stroke();
+    up(k.cx - 11, cy - 3);
+  } else if (k.mode === "order") {
+    /* a list read straight down: the arrow points down the running order,
+       which is what tells it apart from the queue key beside it. */
+    [-7, 0, 7].forEach(dy => {
+      x.beginPath();
+      x.moveTo(k.cx - 12, cy + dy);
+      x.lineTo(k.cx + 2, cy + dy);
+      x.stroke();
+    });
+    x.beginPath(); x.moveTo(k.cx + 9, cy - 9); x.lineTo(k.cx + 9, cy + 4); x.stroke();
+    down(k.cx + 9, cy + 10);
+  } else if (k.mode === "shuffle") {
+    /* two paths crossing: anything next */
+    x.beginPath(); x.moveTo(k.cx - 11, cy - 7); x.lineTo(k.cx + 4, cy + 7); x.stroke();
+    x.beginPath(); x.moveTo(k.cx - 11, cy + 7); x.lineTo(k.cx + 4, cy - 7); x.stroke();
+    arrow(k.cx + 8, cy - 7, 1);
+    arrow(k.cx + 8, cy + 7, 1);
+  } else {
+    /* queue: a list of tracks, each with its own mark - a shape no mode key
+       uses, so the one button that opens something is never mistaken for
+       one that changes how the music runs. */
+    [-8, 0, 8].forEach(dy => {
+      x.beginPath(); x.arc(k.cx - 11, cy + dy, 1.9, 0, 6.3); x.fill();
+      x.beginPath(); x.moveTo(k.cx - 4, cy + dy); x.lineTo(k.cx + 11, cy + dy); x.stroke();
+    });
+  }
+  x.shadowBlur = 0;
 }
 
 function drawMusicPanel(rec, progress, t, playing) {
@@ -444,8 +529,8 @@ function drawMusicPanel(rec, progress, t, playing) {
      through the letters and made the name hard to read. A name too long for
      the space is drawn onto its own strip and eased across it, rather than
      being cut off where the clock begins. */
-  /* the mode the playlist is in, sitting between the name and the clock */
-  if (rec.isPlaylist) drawModePill(x, L.pill);
+  /* mode and queue keys live in the bay, beside the transport */
+  L.keys.forEach(k => drawPanelKey(x, k));
 
   /* Fixed reserves rather than measured ones, so the title never has to
      reflow because a clock ticked from 0:59 to 1:00. */
@@ -508,11 +593,16 @@ function drawMusicPanel(rec, progress, t, playing) {
 /* Hangs the strip above a work. The host frame's group carries the wall's
    position and angle, so the panel only has to say how far up it sits. */
 function buildMusicPanel(hostFrame, art) {
-  const width = Math.max(PANEL_W_MIN, hostFrame.OW * 1.04);
-  const height = width / PANEL_ASPECT;
   /* The strip on the feature wall runs the whole museum's music; every other
      one works the single track hanging above it. */
   const isPlaylist = !!hostFrame.isFeature;
+  /* The playlist strip is given more width, because it has a transport, four
+     keys and a song title to fit - but only enough more that it still reads
+     as part of the wall rather than a fascia bolted across it. */
+  const width = isPlaylist
+    ? Math.max(3.2, hostFrame.OW * 1.22)
+    : Math.max(PANEL_W_MIN, hostFrame.OW * 1.04);
+  const height = width / PANEL_ASPECT;
 
   const canvas = document.createElement("canvas");
   canvas.width = 1024; canvas.height = Math.round(1024 / PANEL_ASPECT);
@@ -532,7 +622,8 @@ function buildMusicPanel(hostFrame, art) {
      Measured from the frame's own height, since the feature wall hangs its
      work higher than the rotunda does. */
   const wallLineLocal = 3.2 - (hostFrame.pos ? hostFrame.pos.y : G.ART_Y);
-  const y = Math.max(hostFrame.OH / 2 + height / 2 + 0.20,
+  const clearance = isPlaylist ? 0.14 : 0.20;   /* the feature wall has a top */
+  const y = Math.max(hostFrame.OH / 2 + height / 2 + clearance,
                      wallLineLocal + height / 2 + 0.16);
   panel.position.set(0, y, 0.055);
   panel.renderOrder = 4;
@@ -569,14 +660,18 @@ function buildMusicPanel(hostFrame, art) {
     const h = (b.r * 2.1 / L.canvasH) * height;
     const key = b.name === "play" ? { control: "play" }
               : b.name === "next" ? { control: "next" } : { control: "prev" };
-    const mesh = hit(w, h, lx(b.cx), ly(L.cy), 0.078, key);
+    const mesh = hit(w, h, lx(b.cx), ly(b.cy), 0.078, key);
     if (b.name === "play") rec.button = mesh;
   });
 
-  if (isPlaylist) {
-    rec.modeBtn = hit((L.pill.w / 1024) * width, (L.pill.h * 1.5 / L.canvasH) * height,
-                      lx(L.pill.cx), ly(L.pill.cy), 0.078, { control: "mode" });
-  }
+  /* one target per key, so choosing a mode is a single press rather than
+     cycling through the ones you did not want */
+  L.keys.forEach(k => {
+    const w = (k.r * 2.2 / 1024) * width;
+    const h = (k.r * 2.2 / L.canvasH) * height;
+    hit(w, h, lx(k.cx), ly(k.cy), 0.078,
+        k.name === "queue" ? { control: "queue" } : { control: "mode", mode: k.mode });
+  });
 
   /* A strip over the waveform you can point at to jump through the track.
      Taller than the bars themselves so it is comfortable to hit with a

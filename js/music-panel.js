@@ -17,6 +17,149 @@
 
 const MusicPanels = [];
 
+/* ============================================================
+   THE FEATURE-WALL PLAYLIST
+   Every other strip works one track. The one on the feature wall
+   works the whole museum: previous, play, next, and a mode that
+   decides what happens when a song runs out.
+   ============================================================ */
+const PLAYLIST_BAY_W = 380;        /* the wider bay three buttons need */
+const PLAYLIST_MODES = ["order", "repeat", "shuffle"];
+const PLAYLIST_LABEL = { order: "IN ORDER", repeat: "REPEAT", shuffle: "SHUFFLE" };
+const Playlist = { mode: "order", history: [] };
+
+function playlistTracks() {
+  return State.art.filter(a => artKind(a) === "audio" && a.media);
+}
+function featurePanel() {
+  for (let i = 0; i < MusicPanels.length; i++) {
+    if (MusicPanels[i].isPlaylist) return MusicPanels[i];
+  }
+  return null;
+}
+
+/* Repeat is the only mode that wants the element looping on its own; the
+   other two need the clip to end so there is something to act on. Every
+   other track in the museum keeps looping as it always did. */
+function applyPlaylistLoop(rec) {
+  Object.keys(MediaEls).forEach(id => { MediaEls[id].el.loop = true; });
+  if (!rec || !rec.art) return;
+  const e = MediaEls[rec.art.id];
+  if (e) e.el.loop = (Playlist.mode === "repeat");
+}
+
+/* Swap the track the feature strip is working. Title, waveform, clock and
+   buttons all come from rec.art, so they follow from this one assignment;
+   the picture on the wall only changes if the new track brought one of its
+   own, rather than dropping a generic sleeve over a hanging artwork. */
+function playlistLoad(rec, art, remember, forcePlay) {
+  if (!rec || !art) return;
+  const shouldPlay = forcePlay === undefined ? mediaPlaying(rec.art) : forcePlay;
+
+  if (art === rec.art) {                    /* only one track: start it over */
+    const same = mediaEntry(art);
+    if (same) { try { same.el.currentTime = 0; } catch (err) {} }
+    if (shouldPlay) playMedia(art);
+    rec.lastDraw = -1;
+    return;
+  }
+
+  if (remember && rec.art) Playlist.history.push(rec.art.id);
+  pauseMedia(rec.art);
+
+  rec.art = art;
+  rec.env = waveEnvelope(art.name || String(art.id));
+  rec.titleStrip = null;                    /* rebuilt at the new title's width */
+  rec.lastDraw = -1;
+
+  const e = mediaEntry(art);
+  if (e) { try { e.el.currentTime = 0; } catch (err) {} }
+
+  if (hasCover(art)) setFramePicture(rec.host, art.cover);
+  else restoreFramePicture(rec.host);
+
+  applyPlaylistLoop(rec);
+  refreshMediaControls(art.id);
+  if (shouldPlay) playMedia(art);
+  needsRender = true;
+}
+
+function playlistNext(rec, auto) {
+  const list = playlistTracks();
+  if (!rec || !list.length) return;
+  let want;
+  if (Playlist.mode === "shuffle" && list.length > 1) {
+    let i;
+    do { i = Math.floor(Math.random() * list.length); } while (list[i] === rec.art);
+    want = list[i];
+  } else {
+    const cur = list.indexOf(rec.art);
+    want = list[(cur + 1 + list.length) % list.length];
+  }
+  playlistLoad(rec, want, true, auto ? true : undefined);
+}
+
+/* Previous walks the history rather than the running order, so in shuffle it
+   returns to what actually played instead of drawing another random card. */
+function playlistPrev(rec) {
+  const list = playlistTracks();
+  if (!rec || !list.length) return;
+  while (Playlist.history.length) {
+    /* Pop once, into a variable. Inside the find predicate this ran for every
+       artwork in the museum, draining the history and comparing against a
+       different id each time - so Previous quietly fell through to stepping
+       the running order instead of retracing what was actually played. */
+    const id = Playlist.history.pop();
+    const back = State.art.find(a => a.id === id);
+    if (back && back !== rec.art) { playlistLoad(rec, back, false); return; }
+  }
+  const cur = list.indexOf(rec.art);
+  playlistLoad(rec, list[(cur - 1 + list.length) % list.length], false);
+}
+
+function cyclePlaylistMode(rec) {
+  const i = PLAYLIST_MODES.indexOf(Playlist.mode);
+  Playlist.mode = PLAYLIST_MODES[(i + 1) % PLAYLIST_MODES.length];
+  applyPlaylistLoop(rec);
+  if (rec) rec.lastDraw = -1;
+  toast("Playback: " + PLAYLIST_LABEL[Playlist.mode].toLowerCase());
+  needsRender = true;
+}
+
+/* A clip only reaches its end when it is not looping, which is to say when
+   the feature strip is in order or shuffle. */
+function onMediaEnded(artId) {
+  const rec = featurePanel();
+  if (!rec || !rec.art || rec.art.id !== artId) return;
+  if (Playlist.mode === "repeat") return;
+  playlistNext(rec, true);
+}
+
+/* One description of the strip's geometry, in canvas pixels, read by both
+   the drawing and the invisible planes you aim at - so a button is always
+   exactly where it looks. */
+function panelLayout(rec) {
+  const canvasH = Math.round(1024 / PANEL_ASPECT);
+  const bayW = rec.isPlaylist ? PLAYLIST_BAY_W : BAY_W;
+  const bx = PANEL_PAD, by = PANEL_PAD;
+  const bw = 1024 - PANEL_PAD * 2, bh = canvasH - PANEL_PAD * 2;
+  const cy = canvasH / 2;
+  const divX = bx + bayW;
+  const colX = divX + GUTTER;
+  const colRight = bx + bw - 26;
+  const buttons = rec.isPlaylist
+    ? [{ name: "prev", cx: bx + bayW * 0.19, r: 34 },
+       { name: "play", cx: bx + bayW * 0.50, r: 44 },
+       { name: "next", cx: bx + bayW * 0.81, r: 34 }]
+    : [{ name: "play", cx: bx + bayW / 2, r: 47 }];
+  const CLOCK_W = 96, PILL_W = 138, PILL_H = 30;
+  const pill = { w: PILL_W, h: PILL_H,
+                 cx: colRight - CLOCK_W - 16 - PILL_W / 2, cy: by + 46 };
+  return { canvasH, bayW, bx, by, bw, bh, cy, divX, colX, colRight,
+           colW: colRight - colX, buttons, pill,
+           titleRoom: (colRight - colX) - CLOCK_W - 20 - (rec.isPlaylist ? PILL_W + 16 : 0) };
+}
+
 const PANEL_W_MIN = 2.05;          /* metres - readable from across a room */
 const PANEL_ASPECT = 4.0;          /* width : height */
 const PANEL_BARS = 56;             /* waveform columns */
@@ -146,6 +289,74 @@ function drawScrollingTitle(rec, x, left, baseY, room, t) {
   x.fillRect(left - 11, baseY - 13, 2.5, 26);
 }
 
+/* A round brass-ringed key in the bay. The middle one is play or pause; the
+   outer two step through the playlist. */
+function drawBayButton(x, b, cy, playing) {
+  x.beginPath(); x.arc(b.cx, cy, b.r, 0, 6.3);
+  x.fillStyle = "rgba(255,226,170,.10)";
+  x.fill();
+  x.lineWidth = 2;
+  x.strokeStyle = "rgba(" + GOLD + "," + (b.name === "play" ? 0.55 : 0.38) + ")";
+  x.stroke();
+
+  x.fillStyle = "rgba(255,240,214," + (b.name === "play" ? 0.95 : 0.8) + ")";
+  x.shadowColor = "rgba(255,206,130,.5)";
+  x.shadowBlur = b.name === "play" ? 8 : 5;
+
+  const tri = (cx, dir, w, h) => {
+    x.beginPath();
+    x.moveTo(cx - dir * w / 2, cy - h / 2);
+    x.lineTo(cx + dir * w / 2, cy);
+    x.lineTo(cx - dir * w / 2, cy + h / 2);
+    x.closePath(); x.fill();
+  };
+
+  if (b.name === "play") {
+    if (playing) {
+      x.fillRect(b.cx - 12, cy - 16, 8.5, 32);
+      x.fillRect(b.cx + 3.5, cy - 16, 8.5, 32);
+    } else {
+      tri(b.cx + 3, 1, 26, 34);
+    }
+  } else if (b.name === "next") {
+    tri(b.cx - 4, 1, 16, 22);
+    tri(b.cx + 7, 1, 16, 22);
+    x.fillRect(b.cx + 14, cy - 11, 3.5, 22);
+  } else {
+    tri(b.cx + 4, -1, 16, 22);
+    tri(b.cx - 7, -1, 16, 22);
+    x.fillRect(b.cx - 17.5, cy - 11, 3.5, 22);
+  }
+  x.shadowBlur = 0;
+}
+
+/* The current mode, as a small brass pill. Three words rather than three
+   cryptic glyphs: it is read once and understood, which is worth more here
+   than the space a symbol would save. */
+function drawModePill(x, pill) {
+  const half = pill.w / 2, hh = pill.h / 2, r = hh;
+  x.beginPath();
+  x.moveTo(pill.cx - half + r, pill.cy - hh);
+  x.arcTo(pill.cx + half, pill.cy - hh, pill.cx + half, pill.cy + hh, r);
+  x.arcTo(pill.cx + half, pill.cy + hh, pill.cx - half, pill.cy + hh, r);
+  x.arcTo(pill.cx - half, pill.cy + hh, pill.cx - half, pill.cy - hh, r);
+  x.arcTo(pill.cx - half, pill.cy - hh, pill.cx + half, pill.cy - hh, r);
+  x.closePath();
+  x.fillStyle = "rgba(255,226,170,.10)";
+  x.fill();
+  x.lineWidth = 1.5;
+  x.strokeStyle = "rgba(" + GOLD + ",.45)";
+  x.stroke();
+
+  x.font = "700 16px Helvetica, Arial, sans-serif";
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.fillStyle = "rgba(" + GOLD + ",.92)";
+  const label = PLAYLIST_LABEL[Playlist.mode] || "";
+  x.fillText(label, pill.cx + 1, pill.cy + 1);
+  x.textAlign = "left";
+}
+
 function drawMusicPanel(rec, progress, t, playing) {
   const c = rec.canvas, x = c.getContext("2d");
   const W = c.width, H = c.height;
@@ -196,29 +407,11 @@ function drawMusicPanel(rec, progress, t, playing) {
   x.restore();
 
   /* ---- button bay, and the divider that keeps it clear ---- */
-  const bayCX = bx + BAY_W / 2, cy = H / 2;
-  const r = 47;
-  x.beginPath(); x.arc(bayCX, cy, r, 0, 6.3);
-  x.fillStyle = "rgba(255,226,170,.10)";
-  x.fill();
-  x.lineWidth = 2;
-  x.strokeStyle = "rgba(" + GOLD + ",.55)";
-  x.stroke();
+  const L = panelLayout(rec);
+  const cy = L.cy;
+  L.buttons.forEach(b => drawBayButton(x, b, cy, playing));
 
-  x.fillStyle = "rgba(255,240,214,.95)";
-  x.shadowColor = "rgba(255,206,130,.5)";
-  x.shadowBlur = 8;
-  if (playing) {
-    x.fillRect(bayCX - 13, cy - 17, 9, 34);
-    x.fillRect(bayCX + 4, cy - 17, 9, 34);
-  } else {
-    x.beginPath();
-    x.moveTo(bayCX - 12, cy - 19); x.lineTo(bayCX + 20, cy); x.lineTo(bayCX - 12, cy + 19);
-    x.closePath(); x.fill();
-  }
-  x.shadowBlur = 0;
-
-  const divX = bx + BAY_W;
+  const divX = L.divX;
   const dv = x.createLinearGradient(0, by + 22, 0, by + bh - 22);
   dv.addColorStop(0, "rgba(" + GOLD + ",0)");
   dv.addColorStop(0.5, "rgba(" + GOLD + ",.38)");
@@ -227,8 +420,8 @@ function drawMusicPanel(rec, progress, t, playing) {
   x.fillRect(divX, by + 22, 1.5, bh - 44);
 
   /* ---- the right-hand column ---- */
-  const colX = divX + GUTTER;
-  const colW = (bx + bw) - colX - 26;
+  const colX = L.colX;
+  const colW = L.colW;
   const titleY = by + 46;
 
   /* elapsed / total, right-aligned on the title line, so the numbers and the
@@ -251,7 +444,12 @@ function drawMusicPanel(rec, progress, t, playing) {
      through the letters and made the name hard to read. A name too long for
      the space is drawn onto its own strip and eased across it, rather than
      being cut off where the clock begins. */
-  const room = colW - timeW - 26;
+  /* the mode the playlist is in, sitting between the name and the clock */
+  if (rec.isPlaylist) drawModePill(x, L.pill);
+
+  /* Fixed reserves rather than measured ones, so the title never has to
+     reflow because a clock ticked from 0:59 to 1:00. */
+  const room = L.titleRoom;
   drawScrollingTitle(rec, x, colX, titleY, room, t);
 
   /* the artist, quieter still, tucked under the name */
@@ -312,6 +510,9 @@ function drawMusicPanel(rec, progress, t, playing) {
 function buildMusicPanel(hostFrame, art) {
   const width = Math.max(PANEL_W_MIN, hostFrame.OW * 1.04);
   const height = width / PANEL_ASPECT;
+  /* The strip on the feature wall runs the whole museum's music; every other
+     one works the single track hanging above it. */
+  const isPlaylist = !!hostFrame.isFeature;
 
   const canvas = document.createElement("canvas");
   canvas.width = 1024; canvas.height = Math.round(1024 / PANEL_ASPECT);
@@ -337,43 +538,54 @@ function buildMusicPanel(hostFrame, art) {
   panel.renderOrder = 4;
   hostFrame.group.add(panel);
 
-  /* The button is painted into the panel so it shares the design. These two
-     invisible planes are only there to be aimed at: the bay on the left
-     works the track, the rest of the strip opens it. */
-  const bayCX = (BAY_W / 2 + PANEL_PAD) / 1024 - 0.5;
-  const btn = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.115, height * 0.78),
-    musicHitMaterial());
-  btn.position.set(bayCX * width, y, 0.078);
-  btn.userData.control = "play";
-  btn.userData.frame = hostFrame;
-  btn.userData.mediaArtId = art.id;
-  hostFrame.group.add(btn);
-  Pickables.push(btn);
+  const rec = { art: art, host: hostFrame, canvas: canvas, tex: tex,
+                panel: panel, isPlaylist: isPlaylist, badgeOpacity: 0,
+                env: waveEnvelope(art.name || String(art.id)), lastDraw: -1 };
 
-  const body = new THREE.Mesh(new THREE.PlaneGeometry(width, height), musicHitMaterial());
-  body.position.set(0, y, 0.062);
-  body.userData.frame = hostFrame;
-  body.userData.openArtId = art.id;
-  hostFrame.group.add(body);
-  Pickables.push(body);
+  const L = panelLayout(rec);
+  const lx = px => (px / 1024 - 0.5) * width;
+  const ly = py => (0.5 - py / L.canvasH) * height;
+
+  /* Everything you press is painted into the strip, so these planes are
+     invisible and exist only to be aimed at. Each carries the panel rather
+     than a track id: the playlist swaps which song it is working, and the
+     buttons have to follow it rather than stay pinned to the first one. */
+  const hit = (w, h, cx, cyy, z, data) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), musicHitMaterial());
+    m.position.set(cx, y + cyy, z);
+    m.userData.frame = hostFrame;
+    m.userData.panel = rec;
+    Object.keys(data).forEach(k => { m.userData[k] = data[k]; });
+    hostFrame.group.add(m);
+    Pickables.push(m);
+    return m;
+  };
+
+  /* the body opens the track; anything in the bay sits in front of it */
+  rec.body = hit(width, height, 0, 0, 0.062, { open: true });
+
+  L.buttons.forEach(b => {
+    const w = (b.r * 2.1 / 1024) * width;
+    const h = (b.r * 2.1 / L.canvasH) * height;
+    const key = b.name === "play" ? { control: "play" }
+              : b.name === "next" ? { control: "next" } : { control: "prev" };
+    const mesh = hit(w, h, lx(b.cx), ly(L.cy), 0.078, key);
+    if (b.name === "play") rec.button = mesh;
+  });
+
+  if (isPlaylist) {
+    rec.modeBtn = hit((L.pill.w / 1024) * width, (L.pill.h * 1.5 / L.canvasH) * height,
+                      lx(L.pill.cx), ly(L.pill.cy), 0.078, { control: "mode" });
+  }
 
   /* A strip over the waveform you can point at to jump through the track.
      Taller than the bars themselves so it is comfortable to hit with a
      reticle or a thumb, without the drawn waveform changing at all. */
-  const colLeftPx = PANEL_PAD + BAY_W + GUTTER;
-  const colRightPx = 1024 - PANEL_PAD - 26;
-  const seekW = ((colRightPx - colLeftPx) / 1024) * width;
-  const seekCX = (((colLeftPx + colRightPx) / 2) / 1024 - 0.5) * width;
-  const canvasH = Math.round(1024 / PANEL_ASPECT);
-  const seekTopPx = canvasH - 124, seekBotPx = canvasH - 6;
-  const seekH = ((seekBotPx - seekTopPx) / canvasH) * height;
-  const seekCY = (0.5 - ((seekTopPx + seekBotPx) / 2) / canvasH) * height;
-  const seek = new THREE.Mesh(new THREE.PlaneGeometry(seekW, seekH), musicHitMaterial());
-  seek.position.set(seekCX, y + seekCY, 0.070);   // in front of the body at 0.062
-  seek.userData.frame = hostFrame;
-  seek.userData.seekArtId = art.id;
-  hostFrame.group.add(seek);
-  Pickables.push(seek);
+  const seekTopPx = L.canvasH - 124, seekBotPx = L.canvasH - 6;
+  rec.seek = hit(((L.colRight - L.colX) / 1024) * width,
+                 ((seekBotPx - seekTopPx) / L.canvasH) * height,
+                 lx((L.colX + L.colRight) / 2), ly((seekTopPx + seekBotPx) / 2),
+                 0.070, { seek: true });
 
   /* And a badge on the work itself, so the track can be started from the
      picture as well as from the strip - whatever that picture happens to be:
@@ -383,11 +595,10 @@ function buildMusicPanel(hostFrame, art) {
   const badge = makeFrameControl(hostFrame, mediaPlaying(art) ? "pause" : "play");
   badge.userData.control = "play";
   badge.userData.frame = hostFrame;
-  badge.userData.mediaArtId = art.id;
+  badge.userData.panel = rec;
+  rec.badge = badge;
 
-  const rec = { art: art, host: hostFrame, canvas: canvas, tex: tex,
-                panel: panel, button: btn, body: body, badge: badge, badgeOpacity: 0,
-                env: waveEnvelope(art.name || String(art.id)), lastDraw: -1 };
+  if (isPlaylist) applyPlaylistLoop(rec);
   drawMusicPanel(rec, 0, 0, false);
   MusicPanels.push(rec);
   return rec;
@@ -459,7 +670,7 @@ function updateMusicBadgeFade(dt) {
    above it. One without borrows a work already on the wall and sits above
    that instead, so a museum of drawings does not fill up with placeholder
    sleeves. Only when nothing is free does it fall back to hanging its own. */
-function planMusic(featured, rest) {
+function planMusic(featured, rest, featuredTrack) {
   const guests = rest.filter(a => artKind(a) === "audio" && !hasCover(a));
   const hangs = rest.filter(a => guests.indexOf(a) === -1);
 
@@ -478,6 +689,15 @@ function planMusic(featured, rest) {
 
   const pairs = {};        /* host artwork id -> the track sitting above it */
   const orphans = [];
+
+  /* A track chosen for the feature wall claims that wall ahead of the queue,
+     so the piece standing in for it is the one it ends up above. */
+  if (featuredTrack && featured) {
+    pairs[featured.id] = featuredTrack;
+    const taken = hosts.indexOf(featured);
+    if (taken !== -1) hosts.splice(taken, 1);
+  }
+
   guests.forEach(g => {
     const host = hosts.shift();
     if (host) pairs[host.id] = g;
@@ -495,11 +715,31 @@ function planMusic(featured, rest) {
    how big the museum is - the map promising side rooms full of work that the
    museum never builds, because it was counting eight tracks that were only
    ever going to hang above something else. */
+/* Featured music still needs something to look at. In order of preference:
+   the cover it was given, then a picture from the collection standing in for
+   it, and only failing both does it fall back to the sleeve the museum drew.
+   The feature wall is the one place a bare music installation reads as an
+   oversight rather than a choice. */
+function featuredStandIn(track) {
+  return State.art.find(a => a !== track && artKind(a) === "image")
+      || State.art.find(a => a !== track && artKind(a) === "video")
+      || null;
+}
+
 function hangingPlan() {
-  const featured = State.art.find(a => a.featured) || State.art[0] || null;
-  const rest = State.art.filter(a => a !== featured);
-  const music = planMusic(featured, rest);
-  return { featured: featured, wall: music.wall, pairs: music.pairs };
+  const chosen = State.art.find(a => a.featured) || State.art[0] || null;
+  let featured = chosen, featuredTrack = null;
+
+  if (chosen && artKind(chosen) === "audio" && !hasCover(chosen)) {
+    const stand = featuredStandIn(chosen);
+    /* nothing to stand in: the track keeps the wall and hangs its own sleeve */
+    if (stand) { featured = stand; featuredTrack = chosen; }
+  }
+
+  const rest = State.art.filter(a => a !== featured && a !== featuredTrack);
+  const music = planMusic(featured, rest, featuredTrack);
+  return { featured: featured, featuredTrack: featuredTrack,
+           wall: music.wall, pairs: music.pairs };
 }
 function hangingCount() {
   return hangingPlan().wall.length;

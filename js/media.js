@@ -86,6 +86,7 @@ function mediaEntry(art) {
   el.addEventListener("error", () => { entry.failed = true; refreshMediaControls(art.id); });
   el.addEventListener("play", () => refreshMediaControls(art.id));
   el.addEventListener("pause", () => refreshMediaControls(art.id));
+  el.addEventListener("ended", () => onMediaEnded(art.id));
   el.addEventListener("volumechange", () => refreshMediaControls(art.id));
   MediaEls[art.id] = entry;
   return entry;

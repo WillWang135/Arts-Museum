@@ -11,7 +11,7 @@
      padding each side pushed the card off the right of a phone screen. */
   .veil{padding:12px}
   .card{--meta-reserve:200px;--stage:min(52vh, calc(94vh - var(--meta-reserve)));width:calc(100vw - 24px)}
-  .card.is-full{margin:-12px}          /* --stage stays 100vh: full means full */
+  /* .card.is-full is pinned to the viewport in museum.css; nothing to add */
   .card .meta{padding:18px 18px 22px}
   .card .metatop{gap:14px}
   .card .mediabar{width:100%}

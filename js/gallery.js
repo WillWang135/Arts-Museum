@@ -93,6 +93,30 @@ function makeFrameControl(frame, iconName) {
   return b;
 }
 
+
+/* The feature wall shows the cover of whatever the playlist is on, when that
+   track brought one. A track with no cover of its own leaves the hanging
+   work alone rather than dropping a generic sleeve over it. */
+function setFramePicture(frame, src) {
+  if (!frame || !frame.picture || !src) return;
+  if (frame.baseTex === undefined) frame.baseTex = frame.picture.material.map;
+  const t = new THREE.TextureLoader().load(src, () => { needsRender = true; });
+  t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = maxAniso;
+  if (frame.swapTex) frame.swapTex.dispose();
+  frame.swapTex = t;
+  frame.picture.material.map = t;
+  frame.picture.material.needsUpdate = true;
+  needsRender = true;
+}
+function restoreFramePicture(frame) {
+  if (!frame || !frame.picture || frame.baseTex === undefined) return;
+  frame.picture.material.map = frame.baseTex;
+  frame.picture.material.needsUpdate = true;
+  if (frame.swapTex) { frame.swapTex.dispose(); frame.swapTex = null; }
+  needsRender = true;
+}
+
 /* ---------- hanging a work ---------- */
 function hangArtwork(art, pos, normal, scale, isFeature) {
   scale = scale || 1;
@@ -138,6 +162,7 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
     }));
   img.position.z = 0.062; g.add(img);            // clear of the mount board at 0.05
+  const pictureMesh = img;                      // the playlist may swap what it shows
 
   const bars = [
     [OW, fw, fd, 0, (H / 2 + m + fw / 2)],
@@ -192,6 +217,7 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
      a row along the bottom-left of the picture, filled left to right. A
      video that also hosts a track therefore lays its own two out first and
      the track's third, rather than stacking them on top of each other. */
+  rec.picture = pictureMesh;
   rec.ctlSize = Math.min(0.40 * scale, H * 0.42, W * 0.34);
   rec.ctlNext = 0;
 

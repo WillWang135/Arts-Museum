@@ -136,6 +136,9 @@ function frameLoop() {
     if (near && hit.visitor) hint(hn, performance.now() - hit.visitor.askedAt < VISITOR_COOLDOWN
       ? "They have just moved" : "Click to ask them to move");
     else if (near && stamp === "erase" && hit.sticker) hint(hn, "Click to remove this sticker");
+    else if (near && hit.control === "next") hint(hn, "Next track");
+    else if (near && hit.control === "prev") hint(hn, "Previous track");
+    else if (near && hit.control === "mode") hint(hn, "Playback: " + PLAYLIST_LABEL[Playlist.mode].toLowerCase());
     else if (near && hit.control) {
       const ca = State.art.find(a => a.id === hit.controlArtId) || hoverFrame.art;
       if (hit.control === "play") hint(hn, mediaPlaying(ca) ? "Click to pause" : "Click to play " + (ca.name || "this"));

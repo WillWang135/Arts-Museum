@@ -102,6 +102,9 @@ function openArtwork(frame, art) {
         '<p class="desc"></p>' +
         '<div class="awards">' + (awards || '<span class="tag">No stickers yet</span>') + waitingNote + '</div>' +
       '</div>' +
+      /* Fullscreen hides the label block, so it carries its own way back to
+         the fitted view; Close sits in the opposite corner as always. */
+      '<div class="fs-bar"><button class="chip" type="button" data-expand>Fit to window</button></div>' +
     '</div>';
 
   const card = veil.querySelector(".card");
@@ -142,11 +145,11 @@ function openArtwork(frame, art) {
   veil.querySelector(".desc").textContent = a.desc || "No description was added for this piece.";
   veil.querySelectorAll(".awards svg").forEach(s => { s.style.width = "20px"; s.style.height = "20px"; s.style.verticalAlign = "-4px"; });
 
-  const expand = veil.querySelector("[data-expand]");
-  expand.addEventListener("click", () => {
-    const full = card.classList.toggle("is-full");
-    expand.textContent = full ? "Fit the window" : "Fill the screen";
-  });
+  /* Two buttons, one job: the one in the label block fills the screen, the
+     one pinned in the corner brings it back. Only ever one is visible, so
+     neither needs its label swapped. */
+  veil.querySelectorAll("[data-expand]").forEach(btn =>
+    onTap(btn, () => { card.classList.toggle("is-full"); }));
 
   if (playable) {
     veil.querySelector("[data-media-play]").addEventListener("click", () => toggleMedia(a));
@@ -182,6 +185,7 @@ function openHelp() {
         '<dt>5</dt><dd>Eraser. Click a sticker to take it back off.</dd>' +
         '<dt>0</dt><dd>Put the stickers away.</dd>' +
         '<dt>M</dt><dd>Show or hide the floorplan.</dd>' +
+        '<dt>Feature wall</dt><dd>The strip above the featured work runs the whole museum\u2019s music: previous, play, next, and a mode for what happens when a song ends \u2014 repeat it, take the next in order, or shuffle.</dd>' +
         '<dt>Pause all</dt><dd>The chip under the map stops every track and video at once, wherever you are. Each one keeps its place, so starting it again carries on from there.</dd>' +
       '</dl>' +
       '<p style="margin:22px 0 0;color:var(--slate);font-size:13.5px">On a phone or tablet, drag the left circle to walk and drag anywhere else to look. Tap a work to open it.</p>' +

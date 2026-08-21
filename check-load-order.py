@@ -79,6 +79,46 @@ def main():
         if where > fi:
             problems.append((order[fi], lineno, ident, order[where], what))
 
+    # What each top-level function goes on to touch, so a call made at load
+    # time can be followed into the functions it reaches. paintPlan() looked
+    # innocent - it lives in the same file that calls it - while the thing it
+    # reaches for lived two files further down.
+    bodies = {}
+    for i, name in enumerate(order):
+        current, lines = None, files[name]
+        for line in lines:
+            if line.startswith("function "):
+                m = re.match(r"function\s+([A-Za-z_$][\w$]*)", line)
+                current = m.group(1) if m else None
+                if current:
+                    bodies.setdefault(current, set())
+            elif line == "}":
+                current = None
+            elif current:
+                # Only call-shaped references. Following every token that
+                # happened to share a name with some declaration produced
+                # paths that do not exist, which buried the real finding.
+                for ident in re.findall(r"(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(", line):
+                    if ident not in KEYWORDS:
+                        bodies[current].add(ident)
+
+    def reaches(root, seen):
+        """every top-level name the call at root can end up touching"""
+        out = set()
+        stack = [root]
+        while stack:
+            fn = stack.pop()
+            if fn in seen:
+                continue
+            seen.add(fn)
+            for ident in bodies.get(fn, ()):  # only names we know about matter
+                if ident not in declared_in:
+                    continue
+                out.add(ident)
+                if ident in bodies:
+                    stack.append(ident)
+        return out
+
     for i, name in enumerate(order):
         for n, line in enumerate(files[name], 1):
             # Only column-0 lines run at load time; anything indented sits
@@ -91,10 +131,13 @@ def main():
             for ident in LISTENER.findall(line):
                 flag(i, n, ident, "handler")
 
-            # A top-level call executes right now.
+            # A top-level call executes right now - and so does everything it
+            # goes on to call.
             m = CALL.match(line)
             if m and m.group(1) not in KEYWORDS:
                 flag(i, n, m.group(1), "call")
+                for reached in sorted(reaches(m.group(1), set())):
+                    flag(i, n, reached, "call reaching " + m.group(1) + " ->")
 
     print("%s -> %d scripts, %d top-level names" % (source.name, len(order), len(declared_in)))
 

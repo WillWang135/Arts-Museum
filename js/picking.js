@@ -24,14 +24,19 @@ function castFrom(v) {
      frame it belongs to - otherwise a play button reads as its artwork. */
   const faded = o.material && o.material.transparent && o.material.opacity <= 0.08;
   const control = (o.userData.control && !faded) ? o.userData.control : null;
-  const controlArtId = control ? o.userData.mediaArtId : null;
-  const openArtId = o.userData.openArtId !== undefined ? o.userData.openArtId : null;
-  const seekArtId = o.userData.seekArtId !== undefined ? o.userData.seekArtId : null;
+  /* A music strip carries the panel rather than a track id, because the
+     playlist changes which song it is working; asking the panel means the
+     buttons always act on whatever is loaded now. */
+  const panel = o.userData.panel || null;
+  const viaPanel = panel && panel.art ? panel.art.id : null;
+  const controlArtId = control ? (viaPanel !== null ? viaPanel : (o.userData.mediaArtId !== undefined ? o.userData.mediaArtId : null)) : null;
+  const openArtId = o.userData.open ? viaPanel : (o.userData.openArtId !== undefined ? o.userData.openArtId : null);
+  const seekArtId = o.userData.seek ? viaPanel : (o.userData.seekArtId !== undefined ? o.userData.seekArtId : null);
   const struck = o;
   while (o && !o.userData.frame) o = o.parent;
   if (!o) return null;
   return { frame: o.userData.frame, control: control, controlArtId: controlArtId,
-           openArtId: openArtId, seekArtId: seekArtId, object: struck,
+           openArtId: openArtId, seekArtId: seekArtId, object: struck, panel: panel,
            point: hits[0].point, distance: hits[0].distance };
 }
 
@@ -62,6 +67,10 @@ function act(e) {
 
   /* A button is a button, whichever sticker happens to be selected. */
   if (hit.control && hit.frame) {
+    /* the playlist keys act on the strip, not on any one track */
+    if (hit.control === "next") { playlistNext(hit.panel); return true; }
+    if (hit.control === "prev") { playlistPrev(hit.panel); return true; }
+    if (hit.control === "mode") { cyclePlaylistMode(hit.panel); return true; }
     const target = (hit.controlArtId !== null && hit.controlArtId !== undefined)
       ? State.art.find(a => a.id === hit.controlArtId) || hit.frame.art
       : hit.frame.art;

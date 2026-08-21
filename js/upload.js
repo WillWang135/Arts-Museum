@@ -205,7 +205,13 @@ async function ingest(fileList) {
   const skipped = { type: [], big: [], broken: [] };
   const queue = [];
 
+  /* A deck is not an artwork, but dropping one here is the obvious thing to
+     try - so it is taken and sent to the presentation screen instead. */
+  const decks = Array.from(fileList).filter(f => /\.pptx$/i.test(f.name));
+  if (decks.length) { loadDeckFile(decks[0]); }
+
   Array.from(fileList).forEach(f => {
+    if (/\.pptx$/i.test(f.name)) return;
     const kind = fileKind(f);
     if (!kind) { skipped.type.push(f.name); return; }
     if (kind !== "image" && f.size > MAX_MEDIA_MB * 1048576) { skipped.big.push(f.name); return; }
@@ -262,7 +268,8 @@ window.addEventListener("drop", e => e.preventDefault());
 $("clear-btn").addEventListener("click", () => {
   if (!confirm("Remove every artwork and sticker from this museum?")) return;
   disposeAllMedia();
-  State.art = []; State.stickers = []; renderLabels();
+  State.art = []; State.stickers = []; State.deck = null; Deck.at = 0;
+  renderLabels(); renderDeckBox();
 });
 
 /* ---------- save / open ---------- */
@@ -272,7 +279,7 @@ function saveMuseum() {
     title: State.session.title || "Student Art Museum",
     code: State.session.code || null,
     saved: new Date().toISOString(),
-    art: State.art, stickers: State.stickers
+    art: State.art, stickers: State.stickers, deck: State.deck
   })], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -290,6 +297,9 @@ $("restore-input").addEventListener("change", async e => {
     disposeAllMedia();
     State.art = data.art;
     State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
+    State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
+    Deck.at = 0;
+    renderDeckBox();
     State.nextId = State.art.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1;
     State.session = { code: data.code || null, title: data.title || "", published: null };
     $("museum-title").value = State.session.title;
@@ -317,4 +327,5 @@ $("museum-title").addEventListener("input", e => {
 })();
 
 renderLabels();
+renderDeckBox();
 requestAnimationFrame(paintPlan);

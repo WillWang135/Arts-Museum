@@ -5,6 +5,12 @@ window.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (overlayOpen()) {
     if (k === "escape") { closeOverlay(); return; }
+    /* the enlarged presentation reads like a deck: left and right step it */
+    if (deckViewer()) {
+      if (k === "arrowleft") { e.preventDefault(); deckGo(-1); return; }
+      if (k === "arrowright" || k === " " || k === "spacebar") { e.preventDefault(); deckGo(1); return; }
+      return;
+    }
     /* Space works the media in the open card, and only there - close it and
        the key means nothing again. Left alone while a field or the browser's
        own player has focus, so it never fights what you are typing or

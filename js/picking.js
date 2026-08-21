@@ -20,6 +20,12 @@ function castFrom(v) {
   }
   if (!hits.length) return null;
   let o = hits[0].object;
+  /* The presentation screen is part of the wall, not a hung work, so it is
+     answered here rather than walked up to a frame that does not exist. */
+  if (o.userData.deckOpen || o.userData.deckStep) {
+    return { deckOpen: !!o.userData.deckOpen, deckStep: o.userData.deckStep || 0,
+             object: o, point: hits[0].point, distance: hits[0].distance };
+  }
   /* Read the badge off the object actually struck, before walking up to the
      frame it belongs to - otherwise a play button reads as its artwork. */
   const faded = o.material && o.material.transparent && o.material.opacity <= 0.08;
@@ -66,6 +72,10 @@ function act(e) {
   /* Somebody in the way is dealt with first - they are the reason you
      cannot get to whatever is behind them. */
   if (hit.visitor) return askVisitorToMove(hit.visitor, performance.now());
+
+  /* the presentation: an arrow steps it, the slide itself opens it larger */
+  if (hit.deckStep) { deckGo(hit.deckStep); return true; }
+  if (hit.deckOpen) { openDeckViewer(); return true; }
 
   /* A button is a button, whichever sticker happens to be selected. */
   if (hit.control && hit.frame) {

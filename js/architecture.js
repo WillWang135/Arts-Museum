@@ -173,53 +173,100 @@ function buildShell(open) {
       t0: G.APO - 1.6, t1: G.APO + 1.3, doorHalf: G.DOOR_W / 2 - 0.45
     });
 
-    /* Furnishing, placed by index so a rebuild puts everything back where
-       it was. A wing gets one piece on a plinth down the middle, seating
-       either side of it and a plant by the door; an alcove gets a single
-       vessel. Room to walk round matters more here than variety - these
-       are the supporting cast, and the walls are the show. */
+    /* ---- furnishing a side room ----
+       Three rules decide every position here. Nothing stands within about
+       two metres of a hang line, so no plant is ever growing out of a
+       drawing. Nothing stands on the centre line between the door and the
+       far wall, so there is always a way through. And everything is placed
+       by index rather than at random, so a rebuild - switching the
+       lighting, opening a saved museum - puts the same room back. */
     if (isWing) {
-      const m1 = at(G.APO + L * 0.5, 0, 0);
+      const CLEAR = 2.1;                       /* off the side walls */
+      const t1 = half - CLEAR;                 /* the furthest anything sits */
+
+      /* one piece down the middle, on its own, with a rope in front of it */
+      const m1 = at(G.APO + L * 0.52, 0, 0);
       const drum = k % 2 === 1;
-      const top = makePlinth(m1.x, m1.z, drum ? 0.92 : 0.98, drum ? 0.34 : 0.42,
+      const top = makePlinth(m1.x, m1.z, drum ? 0.94 : 1.02, drum ? 0.34 : 0.42,
         drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
       if (drum) makeBowl(m1.x, m1.z, top, MAT.limestone, 1.0);
       else makeSculpture(m1.x, m1.z, top, k, 1.05);
+      const bar = at(G.APO + L * 0.52 - 1.35, 0, 0);
+      makeBarrier(bar.x, bar.z, ry + Math.PI / 2, 2.2);
 
-      const b1 = at(G.APO + L * 0.24, 0, 0), b2 = at(G.APO + L * 0.76, 0, 0);
-      makeBench(b1.x, b1.z, ry + Math.PI / 2);
-      if (k % 2 === 0) makeSofa(b2.x, b2.z, ry + Math.PI / 2);
-      else makeBench(b2.x, b2.z, ry + Math.PI / 2);
+      /* seating along both sides, turned to face the walls it serves */
+      const bA = at(G.APO + L * 0.30, t1 * 0.62, 0);
+      const bB = at(G.APO + L * 0.74, -t1 * 0.62, 0);
+      if (k % 2 === 0) { makeBench(bA.x, bA.z, ry); makeSofa(bB.x, bB.z, ry); }
+      else { makeWoodBench(bA.x, bA.z, ry); makeCurvedBench(bB.x, bB.z, ry); }
 
-      const pl = at(G.APO + 1.5, half - 0.72, 0);
-      makePlanter(pl.x, pl.z, k % 2 ? "blades" : "broad", k % 2 ? "ribbed" : "facet");
-      const st = at(G.APO + L - 1.5, -(half - 0.72), 0);
+      /* planting either side of the doorway, before the first work */
+      [1, -1].forEach(sg => {
+        const pl = at(G.APO + 1.35, sg * t1, 0);
+        makePlanter(pl.x, pl.z, sg > 0 ? (k % 2 ? "blades" : "broad") : "bushy",
+                    sg > 0 ? (k % 2 ? "ribbed" : "facet") : "terracotta");
+      });
+
+      /* a case to look into, and a chair to look from */
+      const vt = at(G.APO + L * 0.30, -t1 * 0.66, 0);
+      makeVitrine(vt.x, vt.z, ry + Math.PI / 2, k);
+      const ch = at(G.APO + L * 0.74, t1 * 0.64, 0);
+      makeArmchair(ch.x, ch.z, ry + Math.PI);
+      const st = at(G.APO + L * 0.52, t1 * 0.70, 0);
       makeStool(st.x, st.z, k % 2 ? MAT.olive : MAT.terracotta);
+      const ls = at(G.APO + L * 0.86, -t1 * 0.40, 0);
+      makeLabelStand(ls.x, ls.z, ry + Math.PI);
     } else {
-      const m1 = at(G.APO + L * 0.55, 0, 0);
+      /* An alcove is three metres deep. One vessel, and nothing else. */
+      const m1 = at(G.APO + L * 0.52, 0, 0);
       const top = makePlinth(m1.x, m1.z, 1.0, 0.33, MAT.limestone, "drum");
       if (k % 2 === 0) makeVase(m1.x, m1.z, top, MAT.terracotta, true, 0.92);
       else makeVase(m1.x, m1.z, top, MAT.olive, false, 0.92);
     }
   });
 
-  /* The rotunda: four plinths off the corners of the walk, seating and
-     planting against the outer wall where nobody is trying to stand. */
+  /* ---- furnishing the rotunda ----
+     The wall is at 13.73 m and hangs work on twelve of its sixteen facets,
+     so height is kept well inside it: plinths at 9.6, seating at 10.4, and
+     planting only on the joints between two facets, where it can never
+     stand in front of the middle of a picture. The four doorways lie on the
+     axes, so those lanes are left completely open. */
   [45, 135, 225, 315].forEach((deg, i) => {
     const a = deg * Math.PI / 180, r = 9.6;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     const drum = i % 2 === 1;
-    const top = makePlinth(x, z, drum ? 1.02 : 1.08, drum ? 0.36 : 0.44,
+    const top = makePlinth(x, z, drum ? 1.04 : 1.10, drum ? 0.36 : 0.44,
       drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
     if (i === 1) makeVase(x, z, top, MAT.terracotta, true, 1.0);
     else if (i === 3) makeBowl(x, z, top, MAT.limestone, 1.05);
-    else makeSculpture(x, z, top, i + 2, 1.1);
+    else makeSculpture(x, z, top, i + 2, 1.12);
+    /* a rope across the face of two of them, turned to face the centre */
+    if (i % 2 === 0) {
+      const br = 8.35;
+      makeBarrier(Math.cos(a) * br, Math.sin(a) * br, -a + Math.PI / 2, 2.3);
+    }
   });
-  [[7.9, 6.2], [-7.9, 6.2]].forEach(p => makeBench(p[0], p[1], 0));
-  makePlanter(10.4, -6.0, "broad", "bowl");
-  makePlanter(-10.4, -6.0, "bushy", "terracotta");
-  makeStool(9.4, 7.4, MAT.terracotta);
-  makeStool(-9.4, 7.4, MAT.olive);
-  makeSideTable(0, -10.6, MAT.olive);
-  makePlanter(2.6, -10.4, "blades", "ribbed", 0.92);
+
+  /* seating on the diagonals, parallel to the wall it looks at */
+  [[45, 10.5], [135, 10.5], [225, 10.5], [315, 10.5]].forEach((s, i) => {
+    const a = s[0] * Math.PI / 180;
+    const x = Math.cos(a) * s[1], z = Math.sin(a) * s[1];
+    const face = -a + Math.PI / 2;
+    if (i % 2 === 0) makeBench(x, z, face); else makeCurvedBench(x, z, face);
+  });
+
+  /* planting on the joints between facets, where nothing hangs */
+  [33.75, 146.25, 213.75, 326.25].forEach((deg, i) => {
+    const a = deg * Math.PI / 180, r = 11.4;
+    const styles = [["broad", "bowl"], ["bushy", "terracotta"], ["blades", "ribbed"], ["broad", "facet"]];
+    makePlanter(Math.cos(a) * r, Math.sin(a) * r, styles[i][0], styles[i][1], 1.05);
+  });
+
+  /* the quiet things that fill the space behind the feature wall */
+  makeArchway(-5.6, -7.4, 0.5, 1.0);
+  makeFloorStone(5.6, -7.4, 1.0, MAT.limestoneLo);
+  makeSideTable(-8.2, -3.2, MAT.olive);
+  makeStool(8.2, -3.2, MAT.terracotta);
+  makeVitrine(0, -8.6, 0, 2);
+  makeLabelStand(2.2, -7.2, -0.4);
 }

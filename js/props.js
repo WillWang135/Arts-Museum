@@ -323,3 +323,138 @@ function sunPool(x, z, sx, sz, phase) {
   root.add(m);
   Anim.pools.push({ mesh: m, x0: x, z0: z, phase: phase || Math.random() * 6.3 });
 }
+
+/* ============================================================
+   THE REST OF THE FIT-OUT
+   Seating with a back to it, a case to look into, barriers to
+   stand behind, and the floor pieces that fill a corner without
+   asking to be looked at.
+   ============================================================ */
+
+/* A kidney of travertine on a recessed oak base - the bench from the
+   reference sheet, built as three overlapping slabs so the curve reads
+   without a lathe or a spline. */
+function makeCurvedBench(x, z, ry) {
+  const g = propGroup(x, z, ry || 0);
+  const seat = new THREE.BoxGeometry(1.05, 0.17, 0.62);
+  [[-0.66, 0.16, 0.26], [0, 0, 0], [0.66, -0.16, -0.26]].forEach(s => {
+    const m = part(g, seat, MAT.travertine, s[0], 0.46, s[1]);
+    m.rotation.y = s[2];
+  });
+  [-0.62, 0.62].forEach((dx, i) => {
+    const b = part(g, new THREE.BoxGeometry(0.72, 0.30, 0.36), MAT.paleWood, dx, 0.19, i ? -0.15 : 0.15);
+    b.rotation.y = i ? -0.26 : 0.26;
+  });
+  Nav.boxes.push({ x0: x - 1.5, z0: z - 0.95, x1: x + 1.5, z1: z + 0.95 });
+}
+
+/* Plain oak, thick top, plank legs. The quiet one. */
+function makeWoodBench(x, z, ry) {
+  const g = propGroup(x, z, ry || 0);
+  part(g, new THREE.BoxGeometry(1.85, 0.14, 0.52), MAT.paleWood, 0, 0.45, 0);
+  [-0.72, 0.72].forEach(dx => {
+    part(g, new THREE.BoxGeometry(0.13, 0.38, 0.46), MAT.paleWood, dx, 0.19, 0);
+  });
+  part(g, new THREE.BoxGeometry(1.30, 0.07, 0.10), MAT.paleWood, 0, 0.30, 0);   // stretcher
+  const c = Math.abs(Math.cos(ry || 0)), s = Math.abs(Math.sin(ry || 0));
+  const hw = 0.93 * c + 0.26 * s, hd = 0.93 * s + 0.26 * c;
+  Nav.boxes.push({ x0: x - hw - 0.28, z0: z - hd - 0.28, x1: x + hw + 0.28, z1: z + hd + 0.28 });
+}
+
+/* Cream upholstery, oak plinth, one arm - the chair from the third row. */
+function makeArmchair(x, z, ry) {
+  const g = propGroup(x, z, ry || 0);
+  part(g, new THREE.BoxGeometry(0.86, 0.24, 0.82), MAT.linen, 0, 0.42, 0);        // seat
+  part(g, new THREE.BoxGeometry(0.86, 0.52, 0.20), MAT.linen, 0, 0.66, -0.31);    // back
+  part(g, new THREE.BoxGeometry(0.16, 0.26, 0.72), MAT.linen, -0.35, 0.60, 0.04); // one arm
+  part(g, new THREE.BoxGeometry(0.78, 0.28, 0.74), MAT.paleWood, 0, 0.16, 0);     // base
+  Nav.boxes.push({ x0: x - 0.72, z0: z - 0.72, x1: x + 0.72, z1: z + 0.72 });
+}
+
+/* A low case with something small in it: the detail that says museum
+   rather than showroom. The glass is a single translucent box - cheap,
+   and from any distance a visitor stands at, entirely convincing. */
+function makeVitrine(x, z, ry, i) {
+  const g = propGroup(x, z, ry || 0);
+  part(g, new THREE.BoxGeometry(1.10, 0.74, 0.72), MAT.travertine, 0, 0.37, 0);
+  /* Brass underneath and stone on top, so only a rim of metal shows. A full
+     brass shelf went black: at 0.9 metalness a flat upward face with no
+     environment to reflect has nothing to be bright with. */
+  part(g, new THREE.BoxGeometry(1.18, 0.035, 0.80), MAT.brass, 0, 0.757, 0);
+  part(g, new THREE.BoxGeometry(1.10, 0.030, 0.72), MAT.limestone, 0, 0.782, 0);
+  const shelf = 0.797;
+  const glass = part(g, new THREE.BoxGeometry(1.02, 0.60, 0.64), MAT.vitrine, 0, shelf + 0.30, 0, false);
+  glass.renderOrder = 3;
+  /* the thing on show, always darker than the shelf it stands on */
+  const k = ((i || 0) % 3 + 3) % 3;
+  if (k === 0) pieceCairn(g, shelf, MAT.charcoalLo, 0.58);
+  else if (k === 1) pieceRing(g, shelf, MAT.terracottaLo, 0.60);
+  else pieceStone(g, shelf, MAT.oliveLo, 0.62, 5);
+  /* the label, angled on the shelf */
+  const lab = part(g, new THREE.BoxGeometry(0.28, 0.012, 0.12), MAT.charcoal, 0.35, shelf + 0.01, 0.20, false);
+  lab.rotation.x = -0.42;
+  Nav.boxes.push({ x0: x - 0.9, z0: z - 0.7, x1: x + 0.9, z1: z + 0.7 });
+}
+
+/* A reading stand: the wall text, on the floor, where the wall is glass. */
+function makeLabelStand(x, z, ry) {
+  const g = propGroup(x, z, ry || 0);
+  part(g, new THREE.BoxGeometry(0.30, 0.04, 0.24), MAT.charcoal, 0, 0.02, 0);
+  part(g, new THREE.CylinderGeometry(0.028, 0.034, 0.92, 10), MAT.brass, 0, 0.48, 0);
+  const plate = part(g, new THREE.BoxGeometry(0.40, 0.28, 0.02), MAT.limestone, 0, 1.02, 0.03);
+  plate.rotation.x = -0.62;
+  const ink = part(g, new THREE.BoxGeometry(0.28, 0.14, 0.004), MAT.charcoal, 0, 1.03, 0.05, false);
+  ink.rotation.x = -0.62;
+  Nav.circles.push({ x, z, r: 0.42 });
+}
+
+/* Museum barrier. Two brass posts and a rope that hangs between them -
+   the same one the feature wall uses, made available to the rest of the
+   building so a sculpture can be kept at arm's length too. */
+function stanchion(g, px, pz, topY) {
+  part(g, new THREE.CylinderGeometry(0.15, 0.18, 0.045, 20), MAT.brass, px, 0.022, pz);
+  const foot = part(g, new THREE.SphereGeometry(0.09, 14, 10), MAT.brass, px, 0.065, pz, false);
+  foot.scale.set(1, 0.6, 1);
+  part(g, new THREE.CylinderGeometry(0.024, 0.030, topY - 0.06, 12), MAT.brass, px, (topY - 0.06) / 2 + 0.065, pz);
+  const eye = part(g, new THREE.TorusGeometry(0.05, 0.013, 8, 16), MAT.brass, px, topY, pz, false);
+  eye.rotation.y = Math.PI / 2;
+  part(g, new THREE.SphereGeometry(0.048, 14, 10), MAT.brass, px, topY + 0.08, pz, false);
+}
+function makeBarrier(x, z, ry, span) {
+  const g = propGroup(x, z, ry || 0);
+  const half = (span || 2.4) / 2, topY = 0.88;
+  stanchion(g, -half, 0, topY);
+  stanchion(g, half, 0, topY);
+  const pts = [];
+  for (let s = 0; s <= 10; s++) {
+    const u = s / 10;
+    pts.push(new THREE.Vector3(-half + span * u, topY - Math.sin(u * Math.PI) * 0.14, 0));
+  }
+  part(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.024, 6, false), MAT.ropeMat, 0, 0, 0);
+  /* Only the posts stop anybody - you can duck a rope, and a barrier that
+     blocked its whole span would wall off half a room. */
+  const c = Math.cos(ry || 0), s2 = Math.sin(ry || 0);
+  [-half, half].forEach(o => Nav.circles.push({ x: x + c * o, z: z - s2 * o, r: 0.36 }));
+}
+
+/* A boulder on the floor, unplinthed, the way a heavy piece actually
+   arrives in a gallery. */
+function makeFloorStone(x, z, scale, mat) {
+  const s = scale || 1;
+  const g = propGroup(x, z, (x + z) % 1.4);
+  const m = part(g, new THREE.DodecahedronGeometry(0.42 * s, 0), mat || MAT.limestoneLo, 0, 0.44 * s, 0);
+  m.scale.set(1.05, 1.12, 0.92);
+  Nav.circles.push({ x, z, r: 0.52 * s + 0.36 });
+}
+
+/* The charcoal arch, standing on the floor at knee-to-waist height. */
+function makeArchway(x, z, ry, scale) {
+  const s = scale || 1;
+  const g = propGroup(x, z, ry || 0);
+  const leg = new THREE.BoxGeometry(0.22 * s, 0.62 * s, 0.30 * s);
+  [-1, 1].forEach(sg => part(g, leg, MAT.charcoalLo, sg * 0.29 * s, 0.31 * s, 0));
+  const top = part(g, new THREE.CylinderGeometry(0.40 * s, 0.40 * s, 0.30 * s, 18, 1, false, 0, Math.PI),
+    MAT.charcoalLo, 0, 0.62 * s, 0);
+  top.rotation.x = Math.PI / 2; top.rotation.z = Math.PI;
+  Nav.circles.push({ x, z, r: 0.52 * s + 0.34 });
+}

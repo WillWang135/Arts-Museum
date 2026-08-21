@@ -129,3 +129,32 @@ body.is-guest #clear-btn{display:none !important}
 }
 .cover-btn:hover,.cover-clear:hover{border-color:var(--ink);color:var(--ink)}
 .cover-clear{border-color:transparent;color:var(--faint)}
+
+/* ---------- the presentation, on the setup screen ---------- */
+.deckbox{
+  margin-top:18px;border:1px solid var(--rule);border-radius:3px;
+  background:#fff;
+}
+.deck-empty,.deck-have,.deck-busy{
+  display:flex;align-items:center;gap:16px;padding:16px 18px;
+}
+.deck-empty>div{flex:1;min-width:0}
+.deck-empty strong{display:block;font-family:var(--display);font-size:15px;letter-spacing:-.01em}
+.deck-empty span{display:block;color:var(--slate);font-size:13px;margin-top:3px}
+.deck-thumb{
+  width:96px;height:60px;flex:none;background:#0B0E11;
+  border:1px solid var(--rule);overflow:hidden;display:block;
+}
+.deck-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.deck-meta{flex:1;min-width:0}
+.deck-meta b{display:block;font-family:var(--display);font-size:15px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck-meta span{display:block;color:var(--slate);font-size:13px;margin-top:2px}
+.deck-actions{display:flex;gap:8px;flex:none}
+.deck-busy i{
+  width:16px;height:16px;flex:none;border-radius:50%;
+  border:2px solid var(--rule);border-top-color:var(--forest);
+  animation:deckspin .8s linear infinite;
+}
+.deck-busy span{color:var(--slate);font-size:13.5px}
+@keyframes deckspin{to{transform:rotate(360deg)}}

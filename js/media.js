@@ -76,7 +76,9 @@ function mediaEntry(art) {
   const el = document.createElement(artKind(art) === "audio" ? "audio" : "video");
   el.src = art.media;
   el.preload = "metadata";
-  el.loop = true;              /* only ever reachable once somebody pressed play */
+  /* Asked of the playlist rather than assumed. Born looping, a track in
+     Random or In-order never reached an end, so nothing ever moved on. */
+  el.loop = mediaShouldLoop(art);
   el.playsInline = true;
   el.setAttribute("playsinline", "");
   el.crossOrigin = "anonymous";
@@ -169,6 +171,7 @@ function playMedia(art) {
   const e = mediaEntry(art);
   if (!e) return;
   if (e.failed) { toast("This file will not play in this browser"); return; }
+  e.el.loop = mediaShouldLoop(art);        /* the mode may have moved on */
   if (e.kind === "video") makeRoomForVideo(art.id);
   e.started = true;
   e.el.volume = 0;                 /* fades up from silence, never pops on */

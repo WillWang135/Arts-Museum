@@ -13,6 +13,9 @@ const State = {
   stickers: [],   // {artId, slot, type}
   nextId: 1,
   guest: false,                                      // joined with a code
+  /* {name, w, h, slides:[dataURL]} - the deck on the back of the feature
+     wall. Null until somebody adds one; the wall is plain without it. */
+  deck: null,
   session: { code: null, title: "", published: null }
 };
 

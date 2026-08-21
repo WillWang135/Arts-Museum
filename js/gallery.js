@@ -31,6 +31,8 @@ function buildFeatureWall(featured) {
   [0.44, 4.86].forEach(y => plain(panelW - 0.3, 0.022, 0.055, MAT.brass, 0, y, zBack - 0.03));
   plain(panelW - 0.3, 0.012, 0.05, MAT.brass, 0, 2.65, zBack - 0.045);
 
+  buildDeckScreen(panelW, zBack);
+
   /* barrier: brass stanchions carrying a soft catenary rope */
   const posts = [-3.6, -1.2, 1.2, 3.6], zRope = 2.95, topY = 0.9;
   posts.forEach(px => {
@@ -281,6 +283,148 @@ function buildLights() {
     root.add(s); root.add(s.target);
     spotPool.push({ light: s, frame: null });
   }
+}
+
+/* ============================================================
+   THE PRESENTATION SCREEN
+   Set into the back of the feature wall rather than hung on it:
+   a recessed charcoal surround, a brass reveal, and the slide
+   itself sitting inside. The controls are painted onto the same
+   surround, so nothing floats in front of the wall.
+   ============================================================ */
+let DeckScreen = null;
+
+function buildDeckScreen(panelW, zBack) {
+  DeckScreen = null;
+  if (!deckHas()) return;
+
+  const deck = State.deck;
+  const aspect = (deck.w && deck.h) ? deck.w / deck.h : 16 / 9;
+  /* Sized to the deck's own shape, then trimmed to what the wall can hold,
+     so a 4:3 deck is not stretched into a widescreen hole. */
+  let sw = Math.min(panelW - 1.9, 6.4);
+  let sh = sw / aspect;
+  const maxH = 3.05;
+  if (sh > maxH) { sh = maxH; sw = sh * aspect; }
+
+  const cy = 2.72;
+  const zCase = zBack - 0.10;
+
+  const g = new THREE.Group();
+  g.position.set(0, 0, 0);
+  root.add(g);
+
+  /* the surround, deep enough to read as a recess */
+  const case_ = new THREE.Mesh(new THREE.BoxGeometry(sw + 0.46, sh + 0.92, 0.20), MAT.charcoal);
+  case_.position.set(0, cy - 0.10, zCase);
+  case_.castShadow = true; case_.receiveShadow = true;
+  g.add(case_);
+  const reveal = new THREE.Mesh(new THREE.BoxGeometry(sw + 0.30, sh + 0.30, 0.02), MAT.brass);
+  reveal.position.set(0, cy, zCase - 0.10);
+  g.add(reveal);
+
+  /* the slide */
+  const canvas = document.createElement("canvas");
+  canvas.width = 1600; canvas.height = Math.round(1600 / aspect);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.encoding = THREE.sRGBEncoding;
+  tex.anisotropy = maxAniso;
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh),
+    new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  screen.position.set(0, cy, zCase - 0.111);
+  screen.rotation.y = Math.PI;                 /* the back of the wall faces -Z */
+  g.add(screen);
+
+  /* the strip under it: two arrows and the position in the deck */
+  const barCanvas = document.createElement("canvas");
+  barCanvas.width = 1024; barCanvas.height = 128;
+  const barTex = new THREE.CanvasTexture(barCanvas);
+  barTex.encoding = THREE.sRGBEncoding;
+  barTex.anisotropy = maxAniso;
+  const barW = Math.min(sw, 3.4), barH = barW / 8;
+  const bar = new THREE.Mesh(new THREE.PlaneGeometry(barW, barH),
+    new THREE.MeshBasicMaterial({ map: barTex, transparent: true, toneMapped: false }));
+  bar.position.set(0, cy - sh / 2 - 0.30, zCase - 0.111);
+  bar.rotation.y = Math.PI;
+  g.add(bar);
+
+  DeckScreen = { group: g, canvas: canvas, tex: tex, screen: screen,
+                 barCanvas: barCanvas, barTex: barTex, bar: bar,
+                 w: sw, h: sh, cy: cy, z: zCase - 0.12, drawn: -1 };
+
+  /* what you aim at: the slide itself opens the larger view, and an arrow
+     either side of the strip steps through the deck */
+  const target = (w, h, x, y, data) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), MAT.hit);
+    m.position.set(x, y, zCase - 0.13);
+    /* Turned to face the room, like the screen it covers. A plane's front is
+       its +Z side and the raycaster only reports front faces, so left the
+       default way round these were invisible to a click - the ray went
+       straight through and found an artwork on the far side of the wall. */
+    m.rotation.y = Math.PI;
+    Object.keys(data).forEach(k => { m.userData[k] = data[k]; });
+    g.add(m);
+    Pickables.push(m);
+    return m;
+  };
+  target(sw, sh, 0, cy, { deckOpen: true });
+  const ay = cy - sh / 2 - 0.30;
+  target(barH * 1.5, barH * 1.4, -barW * 0.38, ay, { deckStep: -1 });
+  target(barH * 1.5, barH * 1.4, barW * 0.38, ay, { deckStep: 1 });
+
+  paintDeckScreen();
+}
+
+/* Draws whichever slide is current, and the strip under it. Cheap, and only
+   ever called when the slide actually changes. */
+function paintDeckScreen() {
+  if (!DeckScreen || !deckHas()) return;
+  if (DeckScreen.drawn === Deck.at) return;
+  const src = deckCurrent();
+  if (!src) return;
+
+  const c = DeckScreen.canvas, x = c.getContext("2d");
+  const img = new Image();
+  img.onload = () => {
+    x.fillStyle = "#0B0E11"; x.fillRect(0, 0, c.width, c.height);
+    /* letterboxed rather than stretched: the deck keeps its own shape */
+    const k = Math.min(c.width / img.width, c.height / img.height);
+    const w = img.width * k, h = img.height * k;
+    x.drawImage(img, (c.width - w) / 2, (c.height - h) / 2, w, h);
+    DeckScreen.tex.needsUpdate = true;
+    needsRender = true;
+  };
+  img.src = src;
+  DeckScreen.drawn = Deck.at;
+
+  const b = DeckScreen.barCanvas, bx = b.getContext("2d");
+  bx.clearRect(0, 0, b.width, b.height);
+  bx.fillStyle = "rgba(16,19,22,.82)";
+  bx.beginPath();
+  const r = 46;
+  bx.moveTo(r, 8); bx.arcTo(b.width - 8, 8, b.width - 8, b.height - 8, r);
+  bx.arcTo(b.width - 8, b.height - 8, 8, b.height - 8, r);
+  bx.arcTo(8, b.height - 8, 8, 8, r);
+  bx.arcTo(8, 8, b.width - 8, 8, r);
+  bx.closePath(); bx.fill();
+  bx.strokeStyle = "rgba(244,201,124,.30)"; bx.lineWidth = 2; bx.stroke();
+
+  const arrow = (cx, dir) => {
+    bx.fillStyle = "rgba(255,240,214,.86)";
+    bx.beginPath();
+    bx.moveTo(cx + dir * 12, 40);
+    bx.lineTo(cx - dir * 13, 64);
+    bx.lineTo(cx + dir * 12, 88);
+    bx.closePath(); bx.fill();
+  };
+  arrow(b.width * 0.12, 1);
+  arrow(b.width * 0.88, -1);
+
+  bx.fillStyle = "rgba(255,240,214,.94)";
+  bx.font = "600 46px Helvetica, Arial, sans-serif";
+  bx.textAlign = "center"; bx.textBaseline = "middle";
+  bx.fillText(deckLabel(), b.width / 2, b.height / 2 + 2);
+  DeckScreen.barTex.needsUpdate = true;
 }
 
 /* ---------- assemble ---------- */

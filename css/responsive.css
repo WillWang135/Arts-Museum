@@ -16,6 +16,11 @@
   .card .metatop{gap:14px}
   .card .mediabar{width:100%}
   .card .mediabar .btn{flex:1;min-width:0}
+  .deck-view{width:calc(100vw - 20px);height:86vh}
+  .deck-view .close{top:0;right:0}
+  .deck-empty,.deck-have{flex-wrap:wrap}
+  .deck-actions{width:100%}
+  .deck-actions .btn{flex:1}
   .selfie-bar{bottom:18px;gap:12px;padding:10px 14px}
   .shutter{width:56px;height:56px}
   .shutter i{width:41px;height:41px}

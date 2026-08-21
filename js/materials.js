@@ -39,6 +39,10 @@ function buildMaterials() {
     linen: new THREE.MeshStandardMaterial({ color: 0xE7DFCC, roughness: 0.92 }),
     paleWood: new THREE.MeshStandardMaterial({ color: 0xA97A4E, roughness: 0.62 }),
     pebble: new THREE.MeshStandardMaterial({ color: 0xD9D2C3, roughness: 0.8, flatShading: true }),
+    /* Case glass. Barely there, and never writing to the depth buffer, so
+       what is inside it is not sorted away by the box around it. */
+    vitrine: new THREE.MeshStandardMaterial({ color: 0xDCE6E6, roughness: 0.06, metalness: 0.02,
+      transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
     leafDeep: new THREE.MeshStandardMaterial({ color: 0x2F5138, roughness: 0.86, side: THREE.DoubleSide }),
     leafMid: new THREE.MeshStandardMaterial({ color: 0x3E6B45, roughness: 0.84, side: THREE.DoubleSide }),
     cove: new THREE.MeshBasicMaterial({ color: 0xFFEBCB }),

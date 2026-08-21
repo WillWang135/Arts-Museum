@@ -254,6 +254,7 @@ function openHelp() {
         '<dt>5</dt><dd>Eraser. Click a sticker to take it back off.</dd>' +
         '<dt>0</dt><dd>Put the stickers away.</dd>' +
         '<dt>M</dt><dd>Show or hide the floorplan.</dd>' +
+        '<dt>Presentation</dt><dd>A PowerPoint added on the setup screen hangs on the back of the feature wall. The arrows under it step through the slides, and the number tells you where you are. Click the slide itself to look closer without leaving the room \u2014 the arrow keys work there too.</dd>' +
         '<dt>P</dt><dd>Selfie mode. You turn to face the camera with whatever you were looking at behind you \u2014 drag to reframe, scroll or use +/\u2212 for how far away the camera is held, then press the shutter. Save the photograph or take another. Press P again to carry on walking. On a phone, the Selfie chip does the same thing.</dd>' +
         '<dt>Feature wall</dt><dd>The strip above the featured work runs the whole museum\u2019s music: previous, play, next, and a mode for what happens when a song ends \u2014 repeat it, take the next in order, or shuffle.</dd>' +
         '<dt>Pause all</dt><dd>The chip under the map stops every track and video at once, wherever you are. Each one keeps its place, so starting it again carries on from there.</dd>' +
@@ -271,4 +272,55 @@ function toast(msg) {
   t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove("show"), 1900);
+}
+
+/* ============================================================
+   THE PRESENTATION, LARGER
+   Not the fullscreen viewer. That one blacks the world out,
+   which is right for a photograph and wrong here: the point of
+   this is that the visitor has stepped closer to a screen on a
+   wall, not opened a different application. So the gallery stays
+   where it was, softened and dimmed, and the slide sits in front
+   of it at about four fifths of the window.
+   ============================================================ */
+function deckViewer() { return overlayRoot().querySelector(".deck-view"); }
+
+function syncDeckViewer() {
+  const v = deckViewer();
+  if (!v) return;
+  const img = v.querySelector("img");
+  const src = deckCurrent();
+  if (src && img.getAttribute("src") !== src) img.src = src;
+  v.querySelector(".deck-count").textContent = deckLabel();
+}
+
+function openDeckViewer() {
+  if (!deckHas()) return;
+  if (document.pointerLockElement) document.exitPointerLock();
+  closeOverlay();
+
+  const veil = document.createElement("div");
+  veil.className = "veil deck-veil";
+  veil.innerHTML =
+    '<div class="deck-view">' +
+      '<button class="chip close" type="button" data-close>Close</button>' +
+      '<div class="deck-stage"><img alt="Presentation slide"></div>' +
+      '<div class="deck-bar">' +
+        '<button class="deck-step" type="button" data-step="-1" aria-label="Previous slide">' +
+          '<svg viewBox="0 0 24 24"><path d="M15 5l-8 7 8 7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '</button>' +
+        '<span class="deck-count"></span>' +
+        '<button class="deck-step" type="button" data-step="1" aria-label="Next slide">' +
+          '<svg viewBox="0 0 24 24"><path d="M9 5l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  wireVeil(veil);
+  veil.querySelectorAll("[data-step]").forEach(b => onTap(b, e => {
+    e.stopPropagation();
+    deckGo(+b.dataset.step);
+  }));
+  overlayRoot().appendChild(veil);
+  syncDeckViewer();
 }

@@ -61,6 +61,7 @@ The fit-out is cut from one palette — cream limestone, speckled travertine, te
 | `1` `2` `3` `4` | Pick a sticker, then click beside a frame |
 | `5` / `0` | Eraser / put stickers away |
 | `P` | Selfie mode — take a photograph of yourself in the gallery |
+| Presentation screen | Arrows step the slides; click a slide to look closer |
 | `M` `H` | Map · Controls |
 
 On a tablet: drag the left circle to walk, drag anywhere else to look, tap a work to open it. The camera chip in the left rail opens selfie mode.
@@ -70,6 +71,10 @@ On a tablet: drag the left circle to walk, drag anywhere else to look, tap a wor
 **Audio and video** — nothing plays until someone presses play. Sound is local: loudest beside a work, fading to silence about 14 m away, and only the nearest three are ever audible at once. Three videos play at a time; starting a fourth stands down whichever is furthest off. A clip loops once started; pausing it leaves it paused.
 
 **Music** — a track does not hang in a frame. It gets a strip of wall above a work: title, one button, and a waveform that fills as it plays and settles when paused. Give it a cover and it hangs as a picture with the strip above that instead.
+
+**Presentation** — add a `.pptx` on the setup screen and it hangs on the back of the feature wall: one slide at a time, arrows either side, and the position in the deck. Nothing advances on its own and nothing can be edited from inside. Click the slide and it opens at about four fifths of the window with the gallery still visible, softened, behind it.
+
+The deck is unpacked and drawn to pictures in the page itself — there is no server and nothing is uploaded anywhere. Text, fonts, images, shapes, tables, backgrounds, colours and layout come through. Animations and transitions are ignored, as a slide viewer should; charts and SmartArt cannot be drawn at all, because PowerPoint stores those as instructions for itself rather than as a picture — paste one in as an image if you need to keep it. You are told how many were affected when the deck goes in.
 
 **Selfies** — press <kbd>P</kbd> in front of a work and you turn to face the camera with the artwork behind you, phone raised. Drag to reframe, scroll for how far away it is held, then press the shutter: the photograph is the gallery itself, with no map, chips or controls in it. Save it, take another, or press <kbd>P</kbd> to carry on walking from exactly where you stopped.
 
@@ -108,6 +113,7 @@ js/
   config.js               ← the only file most people edit
   state, codes, sessions        artwork list, join codes, session files
   media                         audio and video artworks, playback, cover art
+  pptx, deck                    a .pptx read in the page, and the slide on the wall
   music-panel                   the wall strip a track gets instead of a frame
   geometry, floorplan           room shape, shared by the 2D plan and 3D build
   upload, join, publish         the setup screen
@@ -132,6 +138,7 @@ The `<script>` tags are ordinary ones rather than ES modules, because modules re
 | **"THREE is not defined"** | A school filter is blocking the 3D library. The page tries three mirrors; to remove the dependency entirely, see SETUP.md. |
 | **Page opens blank** | The `css` and `js` folders aren't beside the HTML file. |
 | **Session feels slow to load** | Check the size in the share panel. Around 25 works lands near 3 MB; video is far heavier, so trim clips before adding them. Files over 200 MB are refused. |
+| **A .pptx won't open** | It needs a current browser — Chrome, Edge, Safari 16.4 or Firefox 113 — for the unzipping. Older `.ppt` and Keynote `.key` are not read; re-save as `.pptx` first. |
 | **A .mov won't play** | Chrome often cannot decode QuickTime. It still hangs and takes stickers, but shows a placeholder — re-export as MP4 (H.264). |
 
 ---

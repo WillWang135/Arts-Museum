@@ -8,7 +8,8 @@ function sessionPayload(code) {
     title: museumTitle(),
     saved: new Date().toISOString(),
     art: State.art,
-    stickers: State.stickers
+    stickers: State.stickers,
+    deck: State.deck
   };
 }
 function payloadSize(code) {

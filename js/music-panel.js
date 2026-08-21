@@ -24,7 +24,8 @@ const MusicPanels = [];
    decides what happens when a song runs out.
    ============================================================ */
 const PLAYLIST_BAY_W = 404;        /* wide enough for a transport row and a key row */
-const PLAYLIST_MODES = ["order", "repeat", "shuffle"];
+/* Left to right on the strip, and the order the key cycles in. */
+const PLAYLIST_MODES = ["shuffle", "order", "repeat"];
 const PLAYLIST_LABEL = { order: "IN ORDER", repeat: "REPEAT", shuffle: "SHUFFLE" };
 /* said as a sentence, for the hint that appears when a key is looked at */
 const PLAYLIST_HINT = {
@@ -46,12 +47,28 @@ function featurePanel() {
 
 /* Repeat is the only mode that wants the element looping on its own; the
    other two need the clip to end so there is something to act on. Every
-   other track in the museum keeps looping as it always did. */
+   other track in the museum keeps looping as it always did.
+
+   This is asked, never remembered. The first version set the flag on the
+   elements that happened to exist at the time, but an <audio> element is
+   only built the first time somebody presses play - and it was built
+   looping. So picking Random lit the Random key and then played the same
+   song forever, because the clip never reached an end for the playlist to
+   act on. */
+function mediaShouldLoop(art) {
+  const rec = featurePanel();
+  if (rec && rec.art === art) return Playlist.mode === "repeat";
+  return true;
+}
 function applyPlaylistLoop(rec) {
-  Object.keys(MediaEls).forEach(id => { MediaEls[id].el.loop = true; });
-  if (!rec || !rec.art) return;
-  const e = MediaEls[rec.art.id];
-  if (e) e.el.loop = (Playlist.mode === "repeat");
+  Object.keys(MediaEls).forEach(id => {
+    const e = MediaEls[id];
+    e.el.loop = mediaShouldLoop(e.art);
+  });
+  if (rec && rec.art) {
+    const e = MediaEls[rec.art.id];
+    if (e) e.el.loop = (Playlist.mode === "repeat");
+  }
 }
 
 /* Swap the track the feature strip is working. Title, waveform, clock and
@@ -170,9 +187,9 @@ function panelLayout(rec) {
 
   const smallY = by + bh - 62;
   const keys = rec.isPlaylist
-    ? [{ name: "mode", mode: "repeat",  cx: bx + bayW * 0.145, cy: smallY, r: 25 },
+    ? [{ name: "mode", mode: "shuffle", cx: bx + bayW * 0.145, cy: smallY, r: 25 },
        { name: "mode", mode: "order",   cx: bx + bayW * 0.382, cy: smallY, r: 25 },
-       { name: "mode", mode: "shuffle", cx: bx + bayW * 0.618, cy: smallY, r: 25 },
+       { name: "mode", mode: "repeat",  cx: bx + bayW * 0.618, cy: smallY, r: 25 },
        { name: "queue",                 cx: bx + bayW * 0.855, cy: smallY, r: 25 }]
     : [];
 
@@ -632,6 +649,10 @@ function buildMusicPanel(hostFrame, art) {
   const rec = { art: art, host: hostFrame, canvas: canvas, tex: tex,
                 panel: panel, isPlaylist: isPlaylist, badgeOpacity: 0,
                 env: waveEnvelope(art.name || String(art.id)), lastDraw: -1 };
+  /* A rebuild - switching the lighting, or opening a saved museum - leaves
+     elements behind that were built under whatever mode was in force then.
+     Squaring them up here means the strip and the sound always agree. */
+  if (isPlaylist) applyPlaylistLoop(rec);
 
   const L = panelLayout(rec);
   const lx = px => (px / 1024 - 0.5) * width;

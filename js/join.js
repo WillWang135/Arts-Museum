@@ -38,6 +38,8 @@ async function joinSession(rawCode) {
     disposeAllMedia();
     State.art = data.art;
     State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
+    State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
+    Deck.at = 0;
     State.nextId = State.art.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1;
     State.session = { code: code, title: data.title || "Student Art Museum", published: data.saved || null };
     State.guest = true;
@@ -70,9 +72,9 @@ $("leave-btn").addEventListener("click", () => {
   if (location.protocol === "about:") {
     State.guest = false;
     disposeAllMedia();
-    State.art = []; State.stickers = [];
+    State.art = []; State.stickers = []; State.deck = null; Deck.at = 0;
     State.session = { code: null, title: "", published: null };
-    applyGuestMode(); renderLabels();
+    applyGuestMode(); renderLabels(); renderDeckBox();
     $("join-input").value = "";
     setJoinNote("Six characters from your teacher.", "");
     return;

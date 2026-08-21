@@ -16,7 +16,7 @@ function enterMuseum() {
     try {
       if (!renderer) { initThree(); setupTouch(); }
       if (isTouchOnly() && quality === "high") { quality = "low"; applyQuality(); }
-      else buildMuseum();
+      else if (!buildMuseumSafely()) throw new Error("build");
       resetPlayer();
       $("loading").classList.add("hidden");
       $("map-btn").classList.add("on");

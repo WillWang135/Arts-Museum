@@ -16,6 +16,10 @@ const APP_VERSION = "V1.2";
    drawings. Past this a file is refused with an explanation rather than
    locking the browser up while it encodes. */
 const MAX_MEDIA_MB = 200;
+/* A presentation is text and pictures, and forty megabytes of that is a very
+   long deck indeed. The old limit was the video one, which let a file through
+   that was large enough to exhaust the tab while it was being unpacked. */
+const MAX_DECK_MB = 40;
 
 const SHARING = {
 

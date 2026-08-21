@@ -72,7 +72,7 @@ On a tablet: drag the left circle to walk, drag anywhere else to look, tap a wor
 
 **Music** — a track does not hang in a frame. It gets a strip of wall above a work: title, one button, and a waveform that fills as it plays and settles when paused. Give it a cover and it hangs as a picture with the strip above that instead.
 
-**Presentation** — add a `.pptx` on the setup screen and it hangs on the back of the feature wall: one slide at a time, arrows either side, and the position in the deck. Nothing advances on its own and nothing can be edited from inside. Click the slide and it opens at about four fifths of the window with the gallery still visible, softened, behind it.
+**Presentation** — add a `.pptx`, or a set of slide images, on the setup screen and it hangs on the back of the feature wall: one slide at a time, arrows either side, and the position in the deck. Nothing advances on its own and nothing can be edited from inside. Click the slide and it opens at about four fifths of the window with the gallery still visible, softened, behind it.
 
 The deck is unpacked and drawn to pictures in the page itself — there is no server and nothing is uploaded anywhere. Text, fonts, images, shapes, tables, backgrounds, colours and layout come through, at any slide size, with or without a theme or master. Anything it cannot draw — an unusual image format, a shape from another program, a slide whose XML is damaged — is skipped and the rest of the slide still appears. Animations and transitions are ignored, as a slide viewer should; charts and SmartArt cannot be drawn at all, because PowerPoint stores those as instructions for itself rather than as a picture — paste one in as an image if you need to keep it. You are told what was left out when the deck goes in, and a file that will not open at all says so and leaves the museum exactly as it was.
 
@@ -138,7 +138,7 @@ The `<script>` tags are ordinary ones rather than ES modules, because modules re
 | **"THREE is not defined"** | A school filter is blocking the 3D library. The page tries three mirrors; to remove the dependency entirely, see SETUP.md. |
 | **Page opens blank** | The `css` and `js` folders aren't beside the HTML file. |
 | **Session feels slow to load** | Check the size in the share panel. Around 25 works lands near 3 MB; video is far heavier, so trim clips before adding them. Files over 200 MB are refused. |
-| **A .pptx won't open** | It needs a current browser — Chrome, Edge, Safari 16.4 or Firefox 113 — for the unzipping. Older `.ppt` and Keynote `.key` are not read; re-save as `.pptx` first. |
+| **A .pptx won't open** | Whatever the reason, the deck box says so in the page. It needs a current browser — Chrome, Edge, Safari 16.4 or Firefox 113 — for the unzipping, and decks are capped at 40 MB. The reliable fallback is **File ‣ Export ‣ PNG** in PowerPoint: drop the slide images into the same control and they hang exactly the same way. |
 | **A .mov won't play** | Chrome often cannot decode QuickTime. It still hangs and takes stickers, but shows a placeholder — re-export as MP4 (H.264). |
 
 ---

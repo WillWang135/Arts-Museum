@@ -115,20 +115,47 @@ async function unzip(buffer) {
   if (!entries.length) entries.push.apply(entries, scanLocalHeaders(dv, u8));
   if (!entries.length) throw new Error("empty zip");
 
-  /* One damaged part must not lose the whole deck: a picture that will not
-     inflate simply does not appear, and the slide it was on still does. */
+  /* The markup is unpacked now, because it is small and everything reads it
+     as it goes. The pictures are not: in a real deck they are ninety-odd per
+     cent of the bytes, and unpacking them all at once meant a hundred and
+     fifty megabytes of decompressed photographs sitting in memory beside a
+     running 3D museum. They are fetched one at a time instead, drawn, and
+     dropped - so the high-water mark is one picture, not all of them.
+
+     One damaged part must not lose the whole deck either: a picture that
+     will not inflate simply does not appear, and its slide still does. */
   const files = {};
-  const jobs = entries.map(e => {
+  const lazy = {};
+  const jobs = [];
+  entries.forEach(e => {
     const raw = u8.subarray(e.start, e.start + e.csize);
-    if (e.method === 0) { files[e.name] = raw.slice(); return null; }
-    if (e.method !== 8) return null;                 /* bzip2 and friends: skip */
-    return inflateRaw(raw).then(
-      out => { files[e.name] = out; },
-      () => {}
-    );
-  }).filter(Boolean);
+    const markup = /\.(xml|rels)$/i.test(e.name);
+    if (e.method === 0) {
+      if (markup) files[e.name] = raw.slice();
+      else lazy[e.name] = { stored: raw };
+      return;
+    }
+    if (e.method !== 8) return;                      /* bzip2 and friends: skip */
+    if (markup) jobs.push(inflateRaw(raw).then(out => { files[e.name] = out; }, () => {}));
+    else lazy[e.name] = { deflated: raw };
+  });
   await Promise.all(jobs);
+  if (!Object.keys(files).length) throw new Error("no markup");
+
+  files.__lazy = lazy;
   return files;
+}
+
+/* One picture, unpacked on request and never kept. */
+async function zipBytes(files, name) {
+  if (files[name]) return files[name];
+  const lazy = files.__lazy && files.__lazy[name];
+  if (!lazy) return null;
+  if (lazy.stored) return lazy.stored;
+  try { return await inflateRaw(lazy.deflated); } catch (err) { return null; }
+}
+function zipHas(files, name) {
+  return !!(files[name] || (files.__lazy && files.__lazy[name]));
 }
 
 /* ---------- small helpers ---------- */
@@ -303,7 +330,7 @@ function slidePaths(files) {
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") || s.getAttribute("r:id");
       const target = relTarget(presRels, rid);
       const path = target ? resolvePath("ppt/presentation.xml", target) : null;
-      if (path && files[path]) order.push(path);
+      if (path && zipHas(files, path)) order.push(path);
     });
   }
   if (order.length) return order;
@@ -317,13 +344,18 @@ function slidePaths(files) {
       if (!type || type.indexOf("/slide") === -1 || type.indexOf("Layout") !== -1 ||
           type.indexOf("Master") !== -1) continue;
       const path = resolvePath("ppt/presentation.xml", all[i].getAttribute("Target"));
-      if (path && files[path]) found.push(path);
+      if (path && zipHas(files, path)) found.push(path);
     }
     if (found.length) return sortByNumber(found);
   }
 
   /* and failing everything, whatever is actually in the slides folder */
   const loose = Object.keys(files).filter(n => /^ppt\/slides\/slide\d+\.xml$/i.test(n));
+  if (!loose.length && files.__lazy) {
+    Object.keys(files.__lazy).forEach(n => {
+      if (/^ppt\/slides\/slide\d+\.xml$/i.test(n)) loose.push(n);
+    });
+  }
   return sortByNumber(loose);
 }
 function sortByNumber(list) {
@@ -471,7 +503,11 @@ async function renderSlide(files, path, cx, cy, W, H, report) {
   await paintTree(ctx, deep(doc.documentElement, "spTree"), rels, path, styles, false, phMap);
 
   if (report) { report.charts += ctx.charts; }
-  return { url: c.toDataURL("image/jpeg", 0.9), charts: ctx.charts };
+  const url = c.toDataURL("image/jpeg", 0.9);
+  /* Handed back as pixels straight away. Twenty-four slide canvases waiting
+     on the garbage collector is a hundred and forty megabytes of nothing. */
+  c.width = 1; c.height = 1;
+  return { url: url, charts: ctx.charts };
 }
 
 function findRelByType(relsDoc, kind) {
@@ -736,30 +772,51 @@ async function paintPicture(ctx, pic, rels, basePath, offset) {
   if (!rid) return;
   const target = relTarget(rels, rid);
   const path = target ? resolvePath(basePath, target) : null;
-  const bytes = path ? ctx.files[path] : null;
-  if (!bytes || !bytes.length) return;
-  if (PPTX_DEAD_IMAGE.test(path)) return;
+  if (!path || PPTX_DEAD_IMAGE.test(path)) return;
 
   const xf = deep(kid(pic, "spPr"), "xfrm");
   const b = boxOf(ctx, xf, offset);
   if (!b || !(b.w > 0) || !(b.h > 0)) return;
 
-  const url = URL.createObjectURL(new Blob([bytes], { type: pptxMime(path) }));
+  const bytes = await zipBytes(ctx.files, path);
+  if (!bytes || !bytes.length) return;
+
+  const blob = new Blob([bytes], { type: pptxMime(path) });
+  let img = null, bitmap = null;
   try {
-    const img = await new Promise((res, rej) => {
-      const im = new Image();
-      im.onload = () => res(im);
-      im.onerror = () => rej(new Error("decode"));
-      /* An SVG with no intrinsic size, or a file that is not really a
-         picture at all, can otherwise leave this pending for good. */
-      setTimeout(() => rej(new Error("slow")), 6000);
-      im.src = url;
-    });
-    if (img.naturalWidth) withBox(ctx, b, (x0, y0, w, h) => ctx.x.drawImage(img, x0, y0, w, h));
+    /* Decoded no larger than it is about to be drawn. A phone photograph
+       out of a real deck is four thousand pixels across and forty-eight
+       megabytes once decoded, to be painted into a box a few hundred wide;
+       asking for it at the size it is wanted is the difference between a
+       deck that opens on a school laptop and one that does not. */
+    const wantW = Math.max(64, Math.min(2048, Math.ceil(Math.abs(b.w) * 2)));
+    if (typeof createImageBitmap === "function") {
+      try {
+        bitmap = await createImageBitmap(blob, { resizeWidth: wantW, resizeQuality: "medium" });
+        img = bitmap;
+      } catch (err) { bitmap = null; img = null; }
+    }
+    if (!img) {
+      const url = URL.createObjectURL(blob);
+      try {
+        img = await new Promise((res, rej) => {
+          const im = new Image();
+          im.onload = () => res(im);
+          im.onerror = () => rej(new Error("decode"));
+          /* An SVG with no intrinsic size, or a file that is not really a
+             picture at all, can otherwise leave this pending for good. */
+          setTimeout(() => rej(new Error("slow")), 6000);
+          im.src = url;
+        });
+      } finally { URL.revokeObjectURL(url); }
+    }
+    if (img && (img.width || img.naturalWidth)) {
+      withBox(ctx, b, (x0, y0, w, h) => ctx.x.drawImage(img, x0, y0, w, h));
+    }
   } catch (err) {
     /* an unsupported format simply does not appear; the slide still does */
   } finally {
-    URL.revokeObjectURL(url);
+    if (bitmap && bitmap.close) bitmap.close();
   }
 }
 

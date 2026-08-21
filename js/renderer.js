@@ -101,7 +101,7 @@ function applyQuality() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === "high" ? 2 : 1.25));
   renderer.shadowMap.enabled = quality === "high";
   $("quality-btn").innerHTML = "Lighting: <b>" + (quality === "high" ? "High" : "Smooth") + "</b>";
-  buildMuseum();
+  buildMuseumSafely();
   resize();
 }
 

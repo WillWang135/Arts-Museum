@@ -72,10 +72,10 @@
         <div class="deck-empty" id="deck-empty">
           <div>
             <strong>Presentation screen</strong>
-            <span>Add a PowerPoint and it hangs on the back of the feature wall, one slide at a time.</span>
+            <span>A PowerPoint, or a folder of slide images, hangs on the back of the feature wall &mdash; one slide at a time.</span>
           </div>
-          <button class="btn btn-quiet" id="deck-btn" type="button">Add a .pptx</button>
-          <input id="deck-input" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden>
+          <button class="btn btn-quiet" id="deck-btn" type="button">Add slides</button>
+          <input id="deck-input" type="file" multiple accept=".pptx,.png,.jpg,.jpeg,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg" hidden>
         </div>
         <div class="deck-have hidden" id="deck-have">
           <span class="deck-thumb"><img id="deck-thumb-img" alt=""></span>
@@ -89,6 +89,7 @@
           </div>
         </div>
         <div class="deck-busy hidden" id="deck-busy"><i></i><span id="deck-busy-text">Reading the deck…</span></div>
+        <p class="deck-note hidden" id="deck-note"></p>
       </section>
     </section>
   </div>

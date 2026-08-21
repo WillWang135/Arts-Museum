@@ -394,11 +394,19 @@ function buildDeckScreen(panelW, zBack) {
    used to decode the same JPEG again every time; a long deck opened and
    closed a few times was a lot of image memory for no reason. */
 const DeckImages = {};
+/* Only the slides either side of the one showing. A decoded 1600-pixel slide
+   is about six megabytes of picture memory, so walking a forty-slide deck
+   from end to end while keeping every one would quietly amount to a quarter
+   of a gigabyte for pages nobody is looking at any more. */
+const DECK_CACHE = 3;
 function deckImage(i, src) {
   if (DeckImages[i]) return DeckImages[i];
   const img = new Image();
   img.src = src;
   DeckImages[i] = img;
+  Object.keys(DeckImages).forEach(k => {
+    if (Math.abs(+k - i) > DECK_CACHE) { DeckImages[k].src = ""; delete DeckImages[k]; }
+  });
   return img;
 }
 function forgetDeckImages() {
@@ -457,6 +465,32 @@ function paintDeckScreen() {
   bx.textAlign = "center"; bx.textBaseline = "middle";
   bx.fillText(deckLabel(), b.width / 2, b.height / 2 + 2);
   DeckScreen.barTex.needsUpdate = true;
+}
+
+/* The museum has to open. If something in the building throws - and the most
+   likely something is a presentation nobody can read - the deck is dropped
+   and the room is built again without it. Failing to open at all leaves the
+   visitor looking at an error panel with no way back into the gallery, which
+   is the one outcome worth any amount of care to avoid. */
+function buildMuseumSafely() {
+  try {
+    buildMuseum();
+    return true;
+  } catch (err) {
+    if (window.console && console.warn) console.warn("build:", err);
+    if (!State.deck) return false;
+    State.deck = null;
+    Deck.at = 0;
+    forgetDeckImages();
+    try {
+      buildMuseum();
+      toast("The presentation could not be shown, so the museum opened without it");
+      return true;
+    } catch (err2) {
+      if (window.console && console.warn) console.warn("build, second attempt:", err2);
+      return false;
+    }
+  }
 }
 
 /* ---------- assemble ---------- */

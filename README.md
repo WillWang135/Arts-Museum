@@ -43,7 +43,7 @@ Codes skip `I`, `L`, `O`, `0` and `1` — nothing a student can misread aloud.
 
 A domed rotunda with a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
 
-The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; benches, low seating, stools and planting fill the corners. It is deliberately restrained: the walls are the exhibition.
+The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; a glass case, a brass rope barrier and a reading stand fill out the corners, and each side room has two long benches. Deliberately sparse: nothing stands within a metre and a half of a picture, nothing blocks a doorway, and the walls are the exhibition.
 
 **Controls**
 
@@ -74,7 +74,7 @@ On a tablet: drag the left circle to walk, drag anywhere else to look, tap a wor
 
 **Presentation** — add a `.pptx` on the setup screen and it hangs on the back of the feature wall: one slide at a time, arrows either side, and the position in the deck. Nothing advances on its own and nothing can be edited from inside. Click the slide and it opens at about four fifths of the window with the gallery still visible, softened, behind it.
 
-The deck is unpacked and drawn to pictures in the page itself — there is no server and nothing is uploaded anywhere. Text, fonts, images, shapes, tables, backgrounds, colours and layout come through. Animations and transitions are ignored, as a slide viewer should; charts and SmartArt cannot be drawn at all, because PowerPoint stores those as instructions for itself rather than as a picture — paste one in as an image if you need to keep it. You are told how many were affected when the deck goes in.
+The deck is unpacked and drawn to pictures in the page itself — there is no server and nothing is uploaded anywhere. Text, fonts, images, shapes, tables, backgrounds, colours and layout come through, at any slide size, with or without a theme or master. Anything it cannot draw — an unusual image format, a shape from another program, a slide whose XML is damaged — is skipped and the rest of the slide still appears. Animations and transitions are ignored, as a slide viewer should; charts and SmartArt cannot be drawn at all, because PowerPoint stores those as instructions for itself rather than as a picture — paste one in as an image if you need to keep it. You are told what was left out when the deck goes in, and a file that will not open at all says so and leaves the museum exactly as it was.
 
 **Selfies** — press <kbd>P</kbd> in front of a work and you turn to face the camera with the artwork behind you, phone raised. Drag to reframe, scroll for how far away it is held, then press the shutter: the photograph is the gallery itself, with no map, chips or controls in it. Save it, take another, or press <kbd>P</kbd> to carry on walking from exactly where you stopped.
 

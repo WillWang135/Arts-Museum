@@ -127,7 +127,11 @@ function fillRuns(idxs, k, cap, alloc) {
 }
 
 function computeLayout(n) {
-  const spacings = [3.2, 2.8, 2.4, 2.0, 1.7];
+  /* Hung looser than before, so a wall of student work reads as an
+     exhibition rather than a noticeboard. The list still steps down
+     when a room genuinely cannot hold what it is given - it just no
+     longer starts at the tightest it can get away with. */
+  const spacings = [4.0, 3.5, 3.0, 2.5, 2.0, 1.7];
   const plan = roomPlan(n);
   const open = plan.open;
   const busiest = Math.max.apply(null, plan.rooms);

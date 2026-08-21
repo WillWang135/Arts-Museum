@@ -31,7 +31,15 @@ function buildFeatureWall(featured) {
   [0.44, 4.86].forEach(y => plain(panelW - 0.3, 0.022, 0.055, MAT.brass, 0, y, zBack - 0.03));
   plain(panelW - 0.3, 0.012, 0.05, MAT.brass, 0, 2.65, zBack - 0.045);
 
-  buildDeckScreen(panelW, zBack);
+  /* Walled off. Whatever a presentation turns out to contain, the museum
+     around it still has to be built - so the worst a broken deck can do is
+     leave the back of this wall plain. */
+  try {
+    buildDeckScreen(panelW, zBack);
+  } catch (err) {
+    DeckScreen = null;
+    if (window.console && console.warn) console.warn("presentation screen:", err);
+  }
 
   /* barrier: brass stanchions carrying a soft catenary rope */
   const posts = [-3.6, -1.2, 1.2, 3.6], zRope = 2.95, topY = 0.9;
@@ -299,7 +307,12 @@ function buildDeckScreen(panelW, zBack) {
   if (!deckHas()) return;
 
   const deck = State.deck;
-  const aspect = (deck.w && deck.h) ? deck.w / deck.h : 16 / 9;
+  /* Clamped, because a slide size read out of an unusual deck can arrive as
+     nought or as something absurd, and a mesh built from that is NaN wide -
+     which does not throw, it simply makes the whole scene vanish. */
+  let aspect = (deck.w > 0 && deck.h > 0) ? deck.w / deck.h : 16 / 9;
+  if (!isFinite(aspect)) aspect = 16 / 9;
+  aspect = Math.max(0.5, Math.min(3.2, aspect));
   /* Sized to the deck's own shape, then trimmed to what the wall can hold,
      so a 4:3 deck is not stretched into a widescreen hole. */
   let sw = Math.min(panelW - 1.9, 6.4);
@@ -377,6 +390,21 @@ function buildDeckScreen(panelW, zBack) {
 
 /* Draws whichever slide is current, and the strip under it. Cheap, and only
    ever called when the slide actually changes. */
+/* Decoded slides, kept by index. Stepping back and forth through a deck
+   used to decode the same JPEG again every time; a long deck opened and
+   closed a few times was a lot of image memory for no reason. */
+const DeckImages = {};
+function deckImage(i, src) {
+  if (DeckImages[i]) return DeckImages[i];
+  const img = new Image();
+  img.src = src;
+  DeckImages[i] = img;
+  return img;
+}
+function forgetDeckImages() {
+  Object.keys(DeckImages).forEach(k => { DeckImages[k].src = ""; delete DeckImages[k]; });
+}
+
 function paintDeckScreen() {
   if (!DeckScreen || !deckHas()) return;
   if (DeckScreen.drawn === Deck.at) return;
@@ -384,8 +412,11 @@ function paintDeckScreen() {
   if (!src) return;
 
   const c = DeckScreen.canvas, x = c.getContext("2d");
-  const img = new Image();
-  img.onload = () => {
+  const at = Deck.at;
+  const img = deckImage(at, src);
+  const draw = () => {
+    if (!DeckScreen || Deck.at !== at) return;          /* stepped on already */
+    if (!img.naturalWidth) return;                      /* a slide that would not decode */
     x.fillStyle = "#0B0E11"; x.fillRect(0, 0, c.width, c.height);
     /* letterboxed rather than stretched: the deck keeps its own shape */
     const k = Math.min(c.width / img.width, c.height / img.height);
@@ -394,7 +425,8 @@ function paintDeckScreen() {
     DeckScreen.tex.needsUpdate = true;
     needsRender = true;
   };
-  img.src = src;
+  if (img.complete) draw();
+  else { img.onload = draw; img.onerror = () => {}; }
   DeckScreen.drawn = Deck.at;
 
   const b = DeckScreen.barCanvas, bx = b.getContext("2d");

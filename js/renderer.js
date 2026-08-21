@@ -106,9 +106,30 @@ function applyQuality() {
 }
 
 /* ---------- loop ---------- */
+/* Told once, then never again - a fault that repeats every frame must not
+   turn into a thousand alerts. */
+let loopFaulted = false;
+
+/* The next frame is asked for BEFORE any work is done, and every bit of that
+   work sits inside a guard. An exception escaping this function used to end
+   the animation callback for good: the picture froze, the controls died, and
+   the only way back was to reload the page. Now a bad frame is skipped and
+   the museum carries on. */
 function frameLoop() {
   if (!running) return;
   requestAnimationFrame(frameLoop);
+  try {
+    frameBody();
+  } catch (err) {
+    if (!loopFaulted) {
+      loopFaulted = true;
+      toast("Something on screen could not be drawn - the museum is still running");
+      if (window.console && console.error) console.error("frame:", err);
+    }
+  }
+}
+
+function frameBody() {
   const dt = Math.min(clock.getDelta(), 0.06);
   const now = performance.now(), t = now / 1000;
 
@@ -162,7 +183,10 @@ function frameLoop() {
   renderer.render(scene, camera);
   /* The read has to follow the draw in the same turn - a canvas without a
      preserved drawing buffer is empty by the time the next tick arrives. */
-  if (Selfie.want) captureSelfie();
+  if (Selfie.want) {
+    try { captureSelfie(); }
+    catch (err) { Selfie.want = false; toast("The photo could not be taken"); }
+  }
 }
 function hint(el, text) { if (el.textContent !== text) el.textContent = text; el.classList.add("show"); }
 function ndcCenterIfLocked() {

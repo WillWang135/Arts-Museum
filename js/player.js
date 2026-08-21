@@ -49,7 +49,7 @@ function walkableForPlayer(x, z) { return canStand(x, z) && clearOfPeople(x, z);
    the corners, where being pushed off one thing can put you into another. */
 
 const SLIDE_EPS = 0.004;         // sat just clear of a surface, never exactly on it
-const SLIDE_PASSES = 4;          // enough to settle a corner between two props
+const SLIDE_PASSES = 6;          // enough to settle a corner between two props
 
 /* Out of the round things: plinths, planters, stools and people. */
 function pushOutCircle(p, cx, cz, r) {
@@ -110,11 +110,43 @@ function pullIntoRoom(p) {
   return true;
 }
 
+/* How far a settling pass may move you when you were not moving anyway.
+   Standing inside something - an object rebuilt around you, or a visitor
+   who walked into your back - used to be resolved in one go, and at sixty
+   frames a second a 0.6 m shove reads as being fired across the room.
+   Eased out four centimetres at a time it is barely noticeable. */
+const SLIDE_MAX_FIX = 0.04;
+
 /* One step, taken and then settled. Returned rather than applied, so the
-   caller can try a few and keep the one that got furthest. */
+   caller can try a few and keep the one that got furthest.
+
+   The correction is allowed to undo the step that was just taken, and after
+   that only to nudge. Those two cases really are different: a step that ends
+   inside a bench has to be pushed all the way back out or you walk through
+   the bench, while an overlap you were already in is not urgent and is far
+   better eased. Clamping both to a nudge is how the first version let a
+   sprint tunnel straight through a plinth. */
 function tryStep(fromX, fromZ, dx, dz) {
-  const p = { x: fromX + dx, z: fromZ + dz };
+  const aimX = fromX + dx, aimZ = fromZ + dz;
+  const p = { x: aimX, z: aimZ };
   slideClear(p);
+  /* Enough to undo this step and a nudge more. Exactly one step was not
+     enough: a corner needs a shade over the step to clear, so a hair of
+     overlap survived each frame, the next frame added its own, and the
+     player quietly creeped through the middle of a plinth. */
+  const room = Math.hypot(dx, dz) + SLIDE_MAX_FIX;
+  const fx = p.x - aimX, fz = p.z - aimZ;
+  const f = Math.hypot(fx, fz);
+  /* Whatever the clamp had to leave behind. A step that ends still buried in
+     something is not a step anybody should be given: reported here so the
+     caller can prefer one that came out clean. */
+  p.left = 0;
+  if (f > room) {
+    const k = room / f;
+    p.x = aimX + fx * k;
+    p.z = aimZ + fz * k;
+    p.left = f - room;
+  }
   return p;
 }
 
@@ -131,7 +163,7 @@ function slideClear(p) {
     }
     for (let i = 0; i < Visitors.length; i++) {
       const v = Visitors[i];
-      if (pushOutCircle(p, v.x, v.z, 0.65)) hit = true;
+      if (pushOutCircle(p, v.x, v.z, 0.58)) hit = true;
     }
     if (pullIntoRoom(p)) hit = true;
     if (!hit) return;
@@ -177,9 +209,17 @@ function stepPlayer(dt) {
     const fromX = p.x, fromZ = p.z;
     const want = Math.hypot(mx, mz);
     let bx = p.x + mx, bz = p.z + mz;
-    if (want > 1e-6) {
+    if (want <= 1e-6) {
+      /* Standing still is not the same as being nowhere. Something can be
+         rebuilt around you, or a visitor can walk into your back; without a
+         settling pass here you simply stayed inside it, and no key would get
+         you out because the whole resolution hung off having pressed one. */
+      const r = tryStep(fromX, fromZ, 0, 0);
+      bx = r.x; bz = r.z;
+    } else {
       const r = tryStep(fromX, fromZ, mx, mz);
       bx = r.x; bz = r.z;
+      let bestLeft = r.left;
       /* Straight into the middle of a pillar, or dead into a corner, the
          push-out points exactly back the way you came and the two cancel:
          you stop, and no amount of holding the key does anything. So when a
@@ -188,21 +228,67 @@ function stepPlayer(dt) {
          a corner from something that traps you into something you round. */
       let gain = ((r.x - fromX) * mx + (r.z - fromZ) * mz) / want;
       if (gain < want * 0.30) {
-        const px = -mz, pz = mx;                 /* perpendicular to the step */
+        /* Leaned to each side, but never lengthened: the first version added
+           a sideways component on top of the step, so a rounded corner could
+           hand back a longer move than the one asked for - and that surplus,
+           fed into the next frame as speed, is what threw the player across
+           the room. Every candidate is the same length as the step it
+           replaces. */
+        const px = -mz / want, pz = mx / want;
+        const ux = mx / want, uz = mz / want;
         for (let s = -1; s <= 1; s += 2) {
-          for (let b = 0.6; b <= 1.25; b += 0.65) {
-            const c = tryStep(fromX, fromZ, mx + px * s * b, mz + pz * s * b);
+          for (let b = 0.5; b <= 0.9; b += 0.4) {
+            const dx = ux + px * s * b, dz = uz + pz * s * b;
+            const d = Math.hypot(dx, dz) || 1;
+            const c = tryStep(fromX, fromZ, dx / d * want, dz / d * want);
             const g = ((c.x - fromX) * mx + (c.z - fromZ) * mz) / want;
-            if (g > gain + 1e-6) { gain = g; bx = c.x; bz = c.z; }
+            /* Coming out clean beats getting further. Without this, a step
+               leaning round an obstacle could be preferred precisely because
+               it ended up inside one - the clamp hid the overlap and the
+               gain looked good - and a few frames of that walked the player
+               straight through the middle of a plinth. */
+            const cleaner = c.left < bestLeft - 1e-6;
+            const asClean = c.left <= bestLeft + 1e-6;
+            if (cleaner || (asClean && g > gain + 1e-6)) {
+              if (cleaner || g > gain) gain = g;
+              bestLeft = c.left; bx = c.x; bz = c.z;
+            }
           }
         }
       }
+      /* The last word, and the one that makes tunnelling impossible. Where
+         two round obstacles overlap each other they leave a lens between
+         them that no single push can get out of: shoved clear of one, you
+         are inside the other, and back again. Rather than trust the settling
+         to converge there, a step that ends inside something when you did
+         not start inside anything is simply not taken. You stop at the
+         surface, which is the whole point of a surface. */
+      if (bestLeft > 1e-3 && tryStep(fromX, fromZ, 0, 0).left <= 1e-3) {
+        bx = fromX; bz = fromZ;
+      }
+
+      /* Whatever came back, the move is capped at the longer of the step
+         asked for and one easing nudge - never their sum. Adding them let a
+         collision hand back nearly twice a walking pace for a frame, and it
+         is that surplus, fed forward as speed, that reads as being thrown. */
+      const dx = bx - fromX, dz = bz - fromZ;
+      const d = Math.hypot(dx, dz);
+      const cap = Math.max(want, SLIDE_MAX_FIX);
+      if (d > cap) { bx = fromX + dx / d * cap; bz = fromZ + dz / d * cap; }
     }
     p.x = bx; p.z = bz;
     /* Carry on at the speed that survived the push, not the speed that was
        asked for. Along a wall the two are the same, and into one the wallward
        part is simply gone - so nothing builds up and nothing bounces. */
-    const gotX = (p.x - fromX) / sub, gotZ = (p.z - fromZ) / sub;
+    let gotX = (p.x - fromX) / sub, gotZ = (p.z - fromZ) / sub;
+    const gotSpeed = Math.hypot(gotX, gotZ), wantSpeed = Math.hypot(mx, mz) / sub;
+    if (gotSpeed > wantSpeed && gotSpeed > 1e-6) {
+      /* An easing nudge moves you; it does not set you going. Carrying it
+         forward as velocity is what let a correction compound frame after
+         frame until the player shot off across the floor. */
+      const k = wantSpeed / gotSpeed;
+      gotX *= k; gotZ *= k;
+    }
     Player.vx = gotX; Player.vz = gotZ;
     mx = gotX * sub; mz = gotZ * sub;
   }

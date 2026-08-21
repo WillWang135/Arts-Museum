@@ -68,8 +68,9 @@ async function loadDeckFile(file) {
     return;
   }
   if (!pptxSupported()) {
-    alert("This browser cannot unpack a .pptx.\n\nIt needs a current Chrome, Edge, Safari 16.4 or " +
-          "Firefox 113. Everything else in the museum still works.");
+    alert("This presentation could not be fully displayed. Please try another file or export " +
+          "it as PDF/images.\n\nThis browser cannot unpack a .pptx. It needs a current Chrome, " +
+          "Edge, Safari 16.4 or Firefox 113.");
     return;
   }
   if (file.size > MAX_MEDIA_MB * 1048576) {
@@ -77,35 +78,83 @@ async function loadDeckFile(file) {
           "big one slows down every student who joins.");
     return;
   }
-  deckBusy(true, "Opening the deck…");
+  deckBusy(true, "Opening the deck\u2026");
+  /* The deck the museum already has is left alone until a new one has been
+     read all the way through. A file that turns out to be unreadable must
+     not also take away the one that was working. */
   try {
     const deck = await readPptx(file, (done, total) =>
-      deckBusy(true, "Drawing slide " + done + " of " + total + "…"));
+      deckBusy(true, "Drawing slide " + done + " of " + total + "\u2026"));
+    forgetDeckImages();
     State.deck = deck;
     Deck.at = 0;
     renderDeckBox();
     refreshDock();
-    if (deck.charts) {
-      alert("The deck is in.\n\n" + deck.charts + (deck.charts === 1 ? " chart or diagram" : " charts or diagrams") +
-            " could not be drawn: PowerPoint stores those as instructions for itself rather than as a " +
-            "picture, and there is no way to run those in a browser. Everything else - text, images, " +
-            "shapes, tables, colours and layout - is on the slides.\n\nTo keep a chart, paste it into " +
-            "PowerPoint as a picture and add the file again.");
+    /* A deck is normally added before anyone goes in, but if the museum is
+       already standing the wall has to be rebuilt around the new slide size
+       - otherwise the screen keeps the old deck's shape and picture while
+       the counter reads the new one. Guarded, like every other route into
+       the presentation: a rebuild that fails must not take the room. */
+    if (running) {
+      try { buildMuseum(); }
+      catch (err) { if (window.console && console.warn) console.warn("rebuild:", err); }
     }
+    reportDeckGaps(deck);
   } catch (err) {
-    State.deck = null;
+    if (window.console && console.warn) console.warn("presentation:", err);
     renderDeckBox();
-    alert("That presentation could not be opened.\n\nIt may be damaged, or password protected. " +
-          "Re-saving it from PowerPoint as .pptx usually fixes it.");
+    alert("This presentation could not be fully displayed. Please try another file " +
+          "or export it as PDF/images.\n\n" + deckWhy(err));
   }
   deckBusy(false);
   renderDeckBox();
+}
+
+/* Said plainly, and only where it is actually known. */
+function deckWhy(err) {
+  const m = String((err && err.message) || "");
+  if (m === "unsupported") {
+    return "This browser cannot unpack a .pptx. It needs a current Chrome, Edge, " +
+           "Safari 16.4 or Firefox 113.";
+  }
+  if (m === "not a zip" || m === "empty zip") {
+    return "The file is not a readable .pptx - it may be damaged, renamed from " +
+           "something else, or password protected.";
+  }
+  if (m === "no slides" || m === "nothing rendered") {
+    return "No slides could be found inside it. Re-saving it from PowerPoint as " +
+           ".pptx usually fixes that.";
+  }
+  return "The museum is unaffected - everything else still works.";
+}
+
+/* What came through, and what did not. Nothing here stops the deck being
+   used; it is the difference between a teacher understanding why a slide
+   looks bare and a teacher thinking the whole thing is broken. */
+function reportDeckGaps(deck) {
+  const notes = [];
+  if (deck.charts) {
+    notes.push(deck.charts + (deck.charts === 1 ? " chart or diagram was" : " charts or diagrams were") +
+      " left out. PowerPoint stores those as instructions for itself rather than as a picture, so " +
+      "there is nothing a browser can draw. Paste one in as an image to keep it.");
+  }
+  if (deck.failed) {
+    notes.push(deck.failed + (deck.failed === 1 ? " slide" : " slides") +
+      " could not be drawn and appear as a blank page. The rest of the deck is unaffected.");
+  }
+  if (deck.skipped) {
+    notes.push("Only the first " + deck.slides.length + " slides were taken; " + deck.skipped +
+      " more were left out to keep the museum quick to load.");
+  }
+  if (!notes.length) return;
+  alert("The deck is in - " + deck.slides.length + " slides.\n\n" + notes.join("\n\n"));
 }
 
 onTapReady(() => {
   $("deck-btn").addEventListener("click", () => $("deck-input").click());
   $("deck-replace").addEventListener("click", () => $("deck-input").click());
   $("deck-remove").addEventListener("click", () => {
+    forgetDeckImages();
     State.deck = null; Deck.at = 0;
     renderDeckBox(); refreshDock();
   });

@@ -190,125 +190,25 @@ function makeBowl(x, z, top, mat, scale) {
 }
 
 /* ---------- seating ---------- */
-/* Travertine slab on a recessed oak plinth: the gallery bench from the
-   third row of the sheet, and the one visitors actually sit on. */
-function makeBench(x, z, ry) {
+/* One bench, and it is one piece. The first version drew a curve as three
+   slabs set at angles to each other, and from anywhere in the room it read
+   as three benches that had been pushed together badly. A single slab on a
+   single recessed base is what the reference actually shows, and what a
+   gallery actually has: long, low, and quiet enough to sit on without
+   looking at.
+
+   Benches belong in the side rooms. In the rotunda they only stood between
+   people and the walls they had come to look at. */
+function makeBench(x, z, ry, len) {
+  const L = len || 2.8;
   const g = propGroup(x, z, ry || 0);
-  part(g, new THREE.BoxGeometry(2.0, 0.16, 0.62), MAT.travertine, 0, 0.44, 0);
-  part(g, new THREE.BoxGeometry(1.62, 0.36, 0.44), MAT.paleWood, 0, 0.18, 0);
+  part(g, new THREE.BoxGeometry(L, 0.16, 0.62), MAT.travertine, 0, 0.45, 0);
+  part(g, new THREE.BoxGeometry(L * 0.76, 0.36, 0.42), MAT.paleWood, 0, 0.19, 0);
+  /* A generous footprint. Nobody should have to thread the gap between the
+     end of a bench and anything else. */
   const c = Math.abs(Math.cos(ry || 0)), s = Math.abs(Math.sin(ry || 0));
-  const hw = 1.0 * c + 0.31 * s, hd = 1.0 * s + 0.31 * c;
-  Nav.boxes.push({ x0: x - hw - 0.3, z0: z - hd - 0.3, x1: x + hw + 0.3, z1: z + hd + 0.3 });
-}
-/* Low olive daybed with a bolster along the back. */
-function makeSofa(x, z, ry) {
-  const g = propGroup(x, z, ry || 0);
-  part(g, new THREE.BoxGeometry(1.95, 0.26, 0.78), MAT.olive, 0, 0.35, 0);
-  const bolster = part(g, new THREE.CylinderGeometry(0.16, 0.16, 1.9, 12), MAT.olive, 0, 0.56, -0.26);
-  bolster.rotation.z = Math.PI / 2;
-  const leg = new THREE.BoxGeometry(0.09, 0.22, 0.09);
-  [[-0.85, 0.3], [0.85, 0.3], [-0.85, -0.3], [0.85, -0.3]].forEach(p =>
-    part(g, leg, MAT.paleWood, p[0], 0.11, p[1]));
-  const c = Math.abs(Math.cos(ry || 0)), s = Math.abs(Math.sin(ry || 0));
-  const hw = 0.98 * c + 0.42 * s, hd = 0.98 * s + 0.42 * c;
-  Nav.boxes.push({ x0: x - hw - 0.3, z0: z - hd - 0.3, x1: x + hw + 0.3, z1: z + hd + 0.3 });
-}
-/* Round upholstered stool on four turned legs, terracotta or olive. */
-function makeStool(x, z, mat) {
-  const g = propGroup(x, z);
-  part(g, new THREE.CylinderGeometry(0.29, 0.29, 0.20, 16), mat || MAT.terracotta, 0, 0.40, 0);
-  const leg = new THREE.CylinderGeometry(0.035, 0.028, 0.30, 8);
-  for (let i = 0; i < 4; i++) {
-    const a = Math.PI / 4 + i * Math.PI / 2;
-    part(g, leg, MAT.paleWood, Math.cos(a) * 0.19, 0.15, Math.sin(a) * 0.19);
-  }
-  Nav.circles.push({ x, z, r: 0.62 });
-}
-/* A little round table, for a corner that needs something at knee height. */
-function makeSideTable(x, z, mat) {
-  const g = propGroup(x, z);
-  part(g, new THREE.CylinderGeometry(0.30, 0.30, 0.07, 18), mat || MAT.olive, 0, 0.48, 0);
-  part(g, new THREE.CylinderGeometry(0.13, 0.17, 0.45, 14), MAT.limestone, 0, 0.225, 0);
-  Nav.circles.push({ x, z, r: 0.62 });
-}
-
-/* ---------- planting ---------- */
-/* Leaves are single tapered blades, faceted and double sided. Six of them
-   round a pot reads as a plant from any distance a visitor stands at, and
-   costs a fraction of anything modelled properly. */
-function leafBlade(g, x, y, z, len, wide, tilt, spin, mat) {
-  /* A tapered blade rather than a cone. A cone is only wide at its very
-     base, so a potful of them read as grass; keeping most of the length
-     near full width is what makes these look like leaves. */
-  const blade = part(g, new THREE.CylinderGeometry(wide * 0.30, wide, len, 4), mat,
-    x, y + len * 0.42, z, false);
-  blade.scale.z = 0.18;
-  blade.rotation.order = "YXZ";
-  blade.rotation.y = spin;
-  blade.rotation.x = tilt;
-  blade.castShadow = true;
-  return blade;
-}
-/* style: "broad" the big-leaf plant, "blades" the upright snake plant,
-   "bushy" the fern. pot: "facet", "ribbed", "bowl" or "terracotta". */
-function makePlanter(x, z, style, pot, scale) {
-  const s = scale || 1;
-  const g = propGroup(x, z);
-  const kind = style || "broad";
-  let rim = 0.52 * s, potR = 0.34 * s;
-
-  if (pot === "ribbed") {
-    part(g, new THREE.CylinderGeometry(potR, potR * 0.94, rim, 20), MAT.limestone, 0, rim / 2, 0);
-    const flute = new THREE.BoxGeometry(potR * 0.22, rim * 0.94, potR * 0.22);
-    for (let i = 0; i < 14; i++) {
-      const a = i * Math.PI * 2 / 14;
-      const f = part(g, flute, MAT.limestone, Math.cos(a) * potR * 0.95, rim / 2, Math.sin(a) * potR * 0.95, false);
-      f.rotation.y = -a;
-    }
-  } else if (pot === "bowl") {
-    rim = 0.46 * s; potR = 0.42 * s;
-    const b = part(g, new THREE.SphereGeometry(potR, 16, 10, 0, 6.3, 0, Math.PI * 0.58), MAT.limestone, 0, rim, 0);
-    b.rotation.x = Math.PI;
-  } else if (pot === "terracotta") {
-    rim = 0.40 * s; potR = 0.28 * s;
-    part(g, new THREE.CylinderGeometry(potR, potR * 0.76, rim, 16), MAT.terracotta, 0, rim / 2 + 0.30 * s, 0);
-    part(g, new THREE.CylinderGeometry(potR * 1.08, potR * 1.08, 0.05 * s, 16), MAT.terracotta, 0, rim + 0.30 * s - 0.02, 0);
-    /* the little wooden stand from the sheet */
-    const leg = new THREE.CylinderGeometry(0.022 * s, 0.022 * s, 0.42 * s, 6);
-    for (let i = 0; i < 3; i++) {
-      const a = i * Math.PI * 2 / 3;
-      const l = part(g, leg, MAT.paleWood, Math.cos(a) * potR * 0.72, 0.21 * s, Math.sin(a) * potR * 0.72);
-      l.rotation.x = Math.cos(a) * 0.13; l.rotation.z = -Math.sin(a) * 0.13;
-    }
-    rim += 0.30 * s;
-  } else {
-    const p = part(g, new THREE.CylinderGeometry(potR, potR * 0.72, rim, 7), MAT.limestoneLo, 0, rim / 2, 0);
-    p.rotation.y = 0.4;
-  }
-
-  if (kind === "blades") {                          /* upright, sword-shaped */
-    for (let i = 0; i < 8; i++) {
-      const a = i * 0.86;
-      leafBlade(g, Math.cos(a) * potR * 0.26, rim - 0.04 * s, Math.sin(a) * potR * 0.26,
-        (0.66 + (i % 3) * 0.15) * s, 0.10 * s, (i % 2 ? 0.13 : -0.10) + jit(2, i) * 0.05, a,
-        i % 2 ? MAT.leafDeep : MAT.leafMid);
-    }
-  } else if (kind === "bushy") {                    /* short fronds, spread wide */
-    for (let i = 0; i < 11; i++) {
-      const a = i * 0.63;
-      leafBlade(g, Math.cos(a) * potR * 0.34, rim - 0.05 * s, Math.sin(a) * potR * 0.34,
-        (0.40 + (i % 3) * 0.11) * s, 0.15 * s, 0.62 + (i % 3) * 0.17, a,
-        i % 2 ? MAT.leafMid : MAT.leafDeep);
-    }
-  } else {                                          /* the big-leafed one */
-    for (let i = 0; i < 7; i++) {
-      const a = i * 0.92;
-      leafBlade(g, Math.cos(a) * potR * 0.28, rim - 0.04 * s, Math.sin(a) * potR * 0.28,
-        (0.58 + (i % 3) * 0.13) * s, 0.20 * s, 0.30 + (i % 3) * 0.22, a,
-        i % 2 ? MAT.leafDeep : MAT.leafMid);
-    }
-  }
-  Nav.circles.push({ x, z, r: Math.max(0.78, potR + 0.5) });
+  const hw = (L / 2) * c + 0.31 * s, hd = (L / 2) * s + 0.31 * c;
+  Nav.boxes.push({ x0: x - hw - 0.34, z0: z - hd - 0.34, x1: x + hw + 0.34, z1: z + hd + 0.34 });
 }
 
 /* a drifting daylight patch on the floor */
@@ -330,46 +230,6 @@ function sunPool(x, z, sx, sz, phase) {
    stand behind, and the floor pieces that fill a corner without
    asking to be looked at.
    ============================================================ */
-
-/* A kidney of travertine on a recessed oak base - the bench from the
-   reference sheet, built as three overlapping slabs so the curve reads
-   without a lathe or a spline. */
-function makeCurvedBench(x, z, ry) {
-  const g = propGroup(x, z, ry || 0);
-  const seat = new THREE.BoxGeometry(1.05, 0.17, 0.62);
-  [[-0.66, 0.16, 0.26], [0, 0, 0], [0.66, -0.16, -0.26]].forEach(s => {
-    const m = part(g, seat, MAT.travertine, s[0], 0.46, s[1]);
-    m.rotation.y = s[2];
-  });
-  [-0.62, 0.62].forEach((dx, i) => {
-    const b = part(g, new THREE.BoxGeometry(0.72, 0.30, 0.36), MAT.paleWood, dx, 0.19, i ? -0.15 : 0.15);
-    b.rotation.y = i ? -0.26 : 0.26;
-  });
-  Nav.boxes.push({ x0: x - 1.5, z0: z - 0.95, x1: x + 1.5, z1: z + 0.95 });
-}
-
-/* Plain oak, thick top, plank legs. The quiet one. */
-function makeWoodBench(x, z, ry) {
-  const g = propGroup(x, z, ry || 0);
-  part(g, new THREE.BoxGeometry(1.85, 0.14, 0.52), MAT.paleWood, 0, 0.45, 0);
-  [-0.72, 0.72].forEach(dx => {
-    part(g, new THREE.BoxGeometry(0.13, 0.38, 0.46), MAT.paleWood, dx, 0.19, 0);
-  });
-  part(g, new THREE.BoxGeometry(1.30, 0.07, 0.10), MAT.paleWood, 0, 0.30, 0);   // stretcher
-  const c = Math.abs(Math.cos(ry || 0)), s = Math.abs(Math.sin(ry || 0));
-  const hw = 0.93 * c + 0.26 * s, hd = 0.93 * s + 0.26 * c;
-  Nav.boxes.push({ x0: x - hw - 0.28, z0: z - hd - 0.28, x1: x + hw + 0.28, z1: z + hd + 0.28 });
-}
-
-/* Cream upholstery, oak plinth, one arm - the chair from the third row. */
-function makeArmchair(x, z, ry) {
-  const g = propGroup(x, z, ry || 0);
-  part(g, new THREE.BoxGeometry(0.86, 0.24, 0.82), MAT.linen, 0, 0.42, 0);        // seat
-  part(g, new THREE.BoxGeometry(0.86, 0.52, 0.20), MAT.linen, 0, 0.66, -0.31);    // back
-  part(g, new THREE.BoxGeometry(0.16, 0.26, 0.72), MAT.linen, -0.35, 0.60, 0.04); // one arm
-  part(g, new THREE.BoxGeometry(0.78, 0.28, 0.74), MAT.paleWood, 0, 0.16, 0);     // base
-  Nav.boxes.push({ x0: x - 0.72, z0: z - 0.72, x1: x + 0.72, z1: z + 0.72 });
-}
 
 /* A low case with something small in it: the detail that says museum
    rather than showroom. The glass is a single translucent box - cheap,

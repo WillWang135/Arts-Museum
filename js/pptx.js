@@ -42,6 +42,42 @@ async function inflateRaw(bytes) {
   return new Uint8Array(await new Response(s).arrayBuffer());
 }
 
+/* A zip64 archive puts -1 in the 32-bit fields and the real numbers in a
+   record of its own. PowerPoint reaches for it on large decks, and without
+   this those decks look like a zip with no entries at all. */
+function zip64Directory(dv, end) {
+  const loc = end - 20;
+  if (loc < 0 || dv.getUint32(loc, true) !== 0x07064b50) return null;
+  /* offsets are 64-bit; the high word is only ever set on files far larger
+     than anything a browser is going to hold in memory anyway */
+  const rec = dv.getUint32(loc + 8, true);
+  if (rec < 0 || rec + 56 > dv.byteLength) return null;
+  if (dv.getUint32(rec, true) !== 0x06064b50) return null;
+  return { count: dv.getUint32(rec + 32, true), offset: dv.getUint32(rec + 48, true) };
+}
+
+/* Last resort: walk the file from the front reading local headers. Slower,
+   and it cannot see entries written with a streaming data descriptor, but it
+   opens archives whose directory is damaged or unusually placed. */
+function scanLocalHeaders(dv, u8) {
+  const out = [];
+  let p = 0;
+  while (p + 30 < dv.byteLength) {
+    if (dv.getUint32(p, true) !== 0x04034b50) break;
+    const flags = dv.getUint16(p + 6, true);
+    const method = dv.getUint16(p + 8, true);
+    const csize = dv.getUint32(p + 18, true);
+    const nameLen = dv.getUint16(p + 26, true);
+    const extraLen = dv.getUint16(p + 28, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 30, p + 30 + nameLen));
+    const start = p + 30 + nameLen + extraLen;
+    if ((flags & 8) || csize === 0) break;          /* size unknown here */
+    out.push({ name: name, method: method, start: start, csize: csize });
+    p = start + csize;
+  }
+  return out;
+}
+
 async function unzip(buffer) {
   const dv = new DataView(buffer), u8 = new Uint8Array(buffer);
   let end = -1;
@@ -49,12 +85,16 @@ async function unzip(buffer) {
     if (dv.getUint32(i, true) === 0x06054b50) { end = i; break; }
   }
   if (end < 0) throw new Error("not a zip");
-  const count = dv.getUint16(end + 10, true);
-  let p = dv.getUint32(end + 16, true);
 
-  const files = {};
-  const jobs = [];
-  for (let i = 0; i < count; i++) {
+  let count = dv.getUint16(end + 10, true);
+  let p = dv.getUint32(end + 16, true);
+  if (count === 0xFFFF || p === 0xFFFFFFFF) {
+    const z64 = zip64Directory(dv, end);
+    if (z64) { count = z64.count; p = z64.offset; }
+  }
+
+  const entries = [];
+  for (let i = 0; i < count && p + 46 <= dv.byteLength; i++) {
     if (dv.getUint32(p, true) !== 0x02014b50) break;
     const method = dv.getUint16(p + 10, true);
     const csize = dv.getUint32(p + 20, true);
@@ -64,15 +104,29 @@ async function unzip(buffer) {
     const local = dv.getUint32(p + 42, true);
     const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen));
     p += 46 + nameLen + extraLen + commentLen;
-
+    if (local + 30 > dv.byteLength) continue;
     /* the local header repeats the name and extra field, at its own lengths */
     const lNameLen = dv.getUint16(local + 26, true);
     const lExtraLen = dv.getUint16(local + 28, true);
     const start = local + 30 + lNameLen + lExtraLen;
-    const raw = u8.subarray(start, start + csize);
-    if (method === 0) files[name] = raw.slice();
-    else jobs.push(inflateRaw(raw).then(out => { files[name] = out; }));
+    if (start + csize > dv.byteLength) continue;
+    entries.push({ name: name, method: method, start: start, csize: csize });
   }
+  if (!entries.length) entries.push.apply(entries, scanLocalHeaders(dv, u8));
+  if (!entries.length) throw new Error("empty zip");
+
+  /* One damaged part must not lose the whole deck: a picture that will not
+     inflate simply does not appear, and the slide it was on still does. */
+  const files = {};
+  const jobs = entries.map(e => {
+    const raw = u8.subarray(e.start, e.start + e.csize);
+    if (e.method === 0) { files[e.name] = raw.slice(); return null; }
+    if (e.method !== 8) return null;                 /* bzip2 and friends: skip */
+    return inflateRaw(raw).then(
+      out => { files[e.name] = out; },
+      () => {}
+    );
+  }).filter(Boolean);
   await Promise.all(jobs);
   return files;
 }
@@ -232,53 +286,130 @@ function readFill(pr, ctx) {
 /* ============================================================
    READING A DECK
    ============================================================ */
+/* Every route to a list of slides, in the order they are worth trying. A
+   deck saved by Keynote, by Google Slides, by an online converter or by a
+   PowerPoint old enough to remember floppy disks does not always name its
+   parts the way the specification suggests. */
+function slidePaths(files) {
+  const pres = pptxXml(files, "ppt/presentation.xml");
+  const presRels = pptxXml(files, "ppt/_rels/presentation.xml.rels");
+  const order = [];
+
+  /* the proper way: the id list, resolved through the relationships */
+  if (pres) {
+    const idList = deep(pres.documentElement, "sldIdLst");
+    kids(idList, "sldId").forEach(s => {
+      const rid = s.getAttributeNS(
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") || s.getAttribute("r:id");
+      const target = relTarget(presRels, rid);
+      const path = target ? resolvePath("ppt/presentation.xml", target) : null;
+      if (path && files[path]) order.push(path);
+    });
+  }
+  if (order.length) return order;
+
+  /* the relationships alone, if the id list is missing or unreadable */
+  if (presRels) {
+    const all = presRels.getElementsByTagName("*");
+    const found = [];
+    for (let i = 0; i < all.length; i++) {
+      const type = all[i].getAttribute && all[i].getAttribute("Type");
+      if (!type || type.indexOf("/slide") === -1 || type.indexOf("Layout") !== -1 ||
+          type.indexOf("Master") !== -1) continue;
+      const path = resolvePath("ppt/presentation.xml", all[i].getAttribute("Target"));
+      if (path && files[path]) found.push(path);
+    }
+    if (found.length) return sortByNumber(found);
+  }
+
+  /* and failing everything, whatever is actually in the slides folder */
+  const loose = Object.keys(files).filter(n => /^ppt\/slides\/slide\d+\.xml$/i.test(n));
+  return sortByNumber(loose);
+}
+function sortByNumber(list) {
+  return list.slice().sort((a, b) => {
+    const na = parseInt((a.match(/(\d+)\.xml$/) || [0, 0])[1], 10);
+    const nb = parseInt((b.match(/(\d+)\.xml$/) || [0, 0])[1], 10);
+    return na - nb;
+  });
+}
+
+/* A slide that could not be drawn at all still takes its place in the deck,
+   so the numbering never lies and the rest of the presentation still runs. */
+function blankSlide(W, H, n, why) {
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  x.fillStyle = "#F4F1EA"; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#8A8578";
+  x.font = "500 " + Math.round(H * 0.045) + "px Helvetica, Arial, sans-serif";
+  x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillText(why || "This slide could not be drawn", W / 2, H / 2 - H * 0.04);
+  x.font = "600 " + Math.round(H * 0.032) + "px Helvetica, Arial, sans-serif";
+  x.fillText("Slide " + n, W / 2, H / 2 + H * 0.05);
+  return c.toDataURL("image/jpeg", 0.85);
+}
+
 async function readPptx(file, onProgress) {
   if (!pptxSupported()) throw new Error("unsupported");
   const files = await unzip(await file.arrayBuffer());
 
-  const pres = pptxXml(files, "ppt/presentation.xml");
-  if (!pres) throw new Error("not a presentation");
-  const sz = deep(pres.documentElement, "sldSz");
-  const cx = num(sz, "cx", 9144000), cy = num(sz, "cy", 6858000);
-
-  const presRels = pptxXml(files, "ppt/_rels/presentation.xml.rels");
-  const idList = deep(pres.documentElement, "sldIdLst");
-  const order = [];
-  kids(idList, "sldId").forEach(s => {
-    const rid = s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id")
-             || s.getAttribute("r:id");
-    const t = relTarget(presRels, rid);
-    if (t) order.push(resolvePath("ppt/presentation.xml", t));
-  });
+  const order = slidePaths(files);
   if (!order.length) throw new Error("no slides");
 
-  const W = PPTX_W, H = Math.round(PPTX_W * cy / cx);
-  const slides = [];
-  let charts = 0;
+  /* Slide size, taken with a pinch of salt. Decks come in 4:3, 16:9, 16:10,
+     A4 portrait and whatever somebody typed into the custom box; anything
+     outside a sane range is treated as missing rather than trusted. */
+  const pres = pptxXml(files, "ppt/presentation.xml");
+  const sz = pres ? deep(pres.documentElement, "sldSz") : null;
+  let cx = num(sz, "cx", 0), cy = num(sz, "cy", 0);
+  if (!(cx > 0) || !(cy > 0) || !isFinite(cx / cy) ||
+      cx / cy < 0.35 || cx / cy > 4) { cx = 12192000; cy = 6858000; }
 
-  for (let i = 0; i < order.length && i < PPTX_MAX_SLIDES; i++) {
-    const r = await renderSlide(files, order[i], cx, cy, W, H);
-    slides.push(r.url);
-    charts += r.charts;
-    if (onProgress) onProgress(i + 1, Math.min(order.length, PPTX_MAX_SLIDES));
+  const total = Math.min(order.length, PPTX_MAX_SLIDES);
+  /* A long deck at full width is a lot of image data to carry inside a
+     session file, so the render steps down rather than the deck being cut. */
+  const W = total > 60 ? 1100 : (total > 30 ? 1360 : PPTX_W);
+  const H = Math.max(2, Math.round(W * cy / cx));
+
+  const slides = [];
+  const report = { charts: 0, failed: 0, pictures: 0 };
+
+  for (let i = 0; i < total; i++) {
+    let r = null;
+    try {
+      r = await renderSlide(files, order[i], cx, cy, W, H, report);
+    } catch (err) {
+      if (window.console && console.warn) console.warn("slide " + (i + 1) + ":", err);
+    }
+    if (r && r.url) slides.push(r.url);
+    else { slides.push(blankSlide(W, H, i + 1)); report.failed++; }
+    if (onProgress) onProgress(i + 1, total);
+    /* let the page breathe, so a long deck never looks frozen */
+    if ((i & 3) === 3) await new Promise(res => setTimeout(res, 0));
   }
+  if (!slides.length) throw new Error("nothing rendered");
+
   return {
     name: file.name.replace(/\.pptx$/i, ""),
     w: W, h: H, slides: slides,
-    skipped: Math.max(0, order.length - slides.length),
-    charts: charts
+    skipped: Math.max(0, order.length - total),
+    charts: report.charts,
+    failed: report.failed
   };
 }
 
 /* One slide, drawn master first, then layout, then the slide itself - the
    order PowerPoint composites them in. */
-async function renderSlide(files, path, cx, cy, W, H) {
+async function renderSlide(files, path, cx, cy, W, H, report) {
   const doc = pptxXml(files, path);
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const x = c.getContext("2d");
   x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, W, H);
-  if (!doc) return { url: c.toDataURL("image/jpeg", 0.9), charts: 0 };
+  /* Unparseable XML is a slide that genuinely could not be read, and saying
+     so beats handing back a blank white page that looks deliberate. */
+  if (!doc) return null;
 
   const rels = relsFor(files, path);
   const layoutPath = resolvePath(path, findRelByType(rels, "slideLayout"));
@@ -304,24 +435,42 @@ async function renderSlide(files, path, cx, cy, W, H) {
     theme: themeColours(themeDoc),
     clrMap: clrMap,
     files: files,
-    charts: 0
+    charts: 0,
+    /* A slide with thousands of shapes is nearly always a converter's idea
+       of a picture. It is drawn as far as this and then let go, rather than
+       locking the tab up for a minute. */
+    budget: 1200
   };
 
   /* background: the slide's own, or the layout's, or the master's */
-  const bg = kid(doc.documentElement, "cSld") ? kid(kid(doc.documentElement, "cSld"), "bg") : null;
-  const lbg = layoutDoc ? deep(layoutDoc.documentElement, "bg") : null;
-  const mbg = masterDoc ? deep(masterDoc.documentElement, "bg") : null;
-  paintBackground(ctx, bg || lbg || mbg);
+  try {
+    const bg = kid(doc.documentElement, "cSld") ? kid(kid(doc.documentElement, "cSld"), "bg") : null;
+    const lbg = layoutDoc ? deep(layoutDoc.documentElement, "bg") : null;
+    const mbg = masterDoc ? deep(masterDoc.documentElement, "bg") : null;
+    paintBackground(ctx, bg || lbg || mbg);
+  } catch (err) { /* a background nobody can read is simply white */ }
 
   /* the master's own furniture, then the layout's, then the slide's. Only
      non-placeholder shapes are taken from the master and layout: an empty
-     "Click to add title" box must not be drawn under the real one. */
-  const styles = readTextStyles(masterDoc, ctx);
-  if (masterDoc) await paintTree(ctx, deep(masterDoc.documentElement, "spTree"), masterRels, masterPath, styles, true);
-  if (layoutDoc) await paintTree(ctx, deep(layoutDoc.documentElement, "spTree"), layoutRels, layoutPath, styles, true);
-  await paintTree(ctx, deep(doc.documentElement, "spTree"), rels, path, styles, false,
-                  placeholderMap(layoutDoc, masterDoc));
+     "Click to add title" box must not be drawn under the real one.
 
+     Each layer is on its own: a master that will not draw must not cost the
+     slide sitting on top of it. */
+  let styles = { title: [], body: [], other: [] };
+  try { styles = readTextStyles(masterDoc, ctx); } catch (err) {}
+  if (masterDoc) {
+    try { await paintTree(ctx, deep(masterDoc.documentElement, "spTree"), masterRels, masterPath, styles, true); }
+    catch (err) {}
+  }
+  if (layoutDoc) {
+    try { await paintTree(ctx, deep(layoutDoc.documentElement, "spTree"), layoutRels, layoutPath, styles, true); }
+    catch (err) {}
+  }
+  let phMap = {};
+  try { phMap = placeholderMap(layoutDoc, masterDoc); } catch (err) {}
+  await paintTree(ctx, deep(doc.documentElement, "spTree"), rels, path, styles, false, phMap);
+
+  if (report) { report.charts += ctx.charts; }
   return { url: c.toDataURL("image/jpeg", 0.9), charts: ctx.charts };
 }
 
@@ -416,28 +565,42 @@ function paintRectFill(ctx, fill, x0, y0, w, h) {
 }
 
 /* ---------- the shape tree ---------- */
-async function paintTree(ctx, tree, rels, basePath, styles, skipPlaceholders, phMap, offset) {
+/* One shape failing is one shape missing, never a slide lost. Everything
+   that walks the tree goes through here. */
+async function paintTree(ctx, tree, rels, basePath, styles, skipPlaceholders, phMap, offset, depth) {
   if (!tree) return;
+  const d = depth || 0;
+  if (d > 8) return;                        /* a group nested this deep is a loop */
   for (let i = 0; i < tree.children.length; i++) {
+    if (ctx.budget-- < 0) return;
     const el = tree.children[i];
     const n = el.localName;
-    if (n === "sp") await paintShape(ctx, el, styles, skipPlaceholders, phMap, offset);
-    else if (n === "pic") await paintPicture(ctx, el, rels, basePath, offset);
-    else if (n === "grpSp") await paintGroup(ctx, el, rels, basePath, styles, skipPlaceholders, phMap, offset);
-    else if (n === "graphicFrame") await paintFrame(ctx, el, styles, offset);
+    try {
+      if (n === "sp") await paintShape(ctx, el, styles, skipPlaceholders, phMap, offset);
+      else if (n === "pic") await paintPicture(ctx, el, rels, basePath, offset);
+      else if (n === "grpSp") await paintGroup(ctx, el, rels, basePath, styles, skipPlaceholders, phMap, offset, d + 1);
+      else if (n === "graphicFrame") await paintFrame(ctx, el, styles, offset);
+      else if (n === "cxnSp") await paintShape(ctx, el, styles, skipPlaceholders, phMap, offset);
+    } catch (err) {
+      /* Whatever this was - an effect nobody implements, a namespace from
+         some other program, a number where a colour should be - the rest of
+         the slide is worth more than it is. */
+    }
   }
 }
 
 /* A group re-bases its children: the child coordinate space is mapped onto
    the box the group occupies. */
-async function paintGroup(ctx, el, rels, basePath, styles, skipPlaceholders, phMap, offset) {
+async function paintGroup(ctx, el, rels, basePath, styles, skipPlaceholders, phMap, offset, depth) {
   const xf = deep(kid(el, "grpSpPr"), "xfrm");
   const off = kid(xf, "off"), ext = kid(xf, "ext");
   const chOff = kid(xf, "chOff"), chExt = kid(xf, "chExt");
   let next = offset;
   if (off && ext && chOff && chExt) {
-    const kx = num(chExt, "cx", 1) ? num(ext, "cx", 1) / num(chExt, "cx", 1) : 1;
-    const ky = num(chExt, "cy", 1) ? num(ext, "cy", 1) / num(chExt, "cy", 1) : 1;
+    let kx = num(chExt, "cx", 0) > 0 ? num(ext, "cx", 1) / num(chExt, "cx", 1) : 1;
+    let ky = num(chExt, "cy", 0) > 0 ? num(ext, "cy", 1) / num(chExt, "cy", 1) : 1;
+    if (!isFinite(kx) || kx === 0) kx = 1;
+    if (!isFinite(ky) || ky === 0) ky = 1;
     const base = offset || { ox: 0, oy: 0, kx: 1, ky: 1 };
     next = {
       ox: base.ox + (num(off, "x", 0) - num(chOff, "x", 0) * kx) * base.kx,
@@ -445,7 +608,7 @@ async function paintGroup(ctx, el, rels, basePath, styles, skipPlaceholders, phM
       kx: base.kx * kx, ky: base.ky * ky
     };
   }
-  await paintTree(ctx, kid(el, "spTree") || el, rels, basePath, styles, skipPlaceholders, phMap, next);
+  await paintTree(ctx, kid(el, "spTree") || el, rels, basePath, styles, skipPlaceholders, phMap, next, depth);
 }
 
 /* off/ext in EMU, through any group transform, into device pixels */
@@ -457,12 +620,19 @@ function boxOf(ctx, xf, offset) {
   const ey = num(off, "y", 0) * o.ky + o.oy;
   const ew = num(ext, "cx", 0) * o.kx;
   const eh = num(ext, "cy", 0) * o.ky;
-  return {
+  const b = {
     x: ex * ctx.sx, y: ey * ctx.sy, w: ew * ctx.sx, h: eh * ctx.sy,
     rot: num(xf, "rot", 0) / 60000 * Math.PI / 180,
     flipH: attr(xf, "flipH", "0") === "1",
     flipV: attr(xf, "flipV", "0") === "1"
   };
+  /* NaN reaches a canvas without complaint and quietly draws nothing, or
+     everything; either way the slide is wrong and nobody is told why. */
+  if (!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.w) || !isFinite(b.h)) return null;
+  if (!isFinite(b.rot)) b.rot = 0;
+  /* far off the slide, or bigger than several of them: not worth drawing */
+  if (Math.abs(b.x) > ctx.W * 8 || Math.abs(b.y) > ctx.H * 8) return null;
+  return b;
 }
 
 function withBox(ctx, b, draw) {
@@ -543,34 +713,51 @@ async function paintShape(ctx, sp, styles, skipPlaceholders, phMap, offset) {
   }
 }
 
+/* Formats a browser will not decode. PowerPoint stores plenty of these -
+   pasted Office drawings especially - and every one of them would otherwise
+   cost a failed load before being given up on. */
+const PPTX_DEAD_IMAGE = /\.(emf|wmf|tiff?|eps|wdp|hdp)$/i;
+function pptxMime(path) {
+  if (/\.png$/i.test(path)) return "image/png";
+  if (/\.gif$/i.test(path)) return "image/gif";
+  if (/\.svg$/i.test(path)) return "image/svg+xml";
+  if (/\.bmp$/i.test(path)) return "image/bmp";
+  if (/\.webp$/i.test(path)) return "image/webp";
+  return "image/jpeg";
+}
+
 async function paintPicture(ctx, pic, rels, basePath, offset) {
   const blip = deep(pic, "blip");
   if (!blip) return;
-  const rid = blip.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "embed")
-           || blip.getAttribute("r:embed");
+  const NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+  /* r:link means the picture lives on the author's own computer. It is not
+     inside the file, and there is nothing to go and fetch. */
+  const rid = blip.getAttributeNS(NS, "embed") || blip.getAttribute("r:embed");
+  if (!rid) return;
   const target = relTarget(rels, rid);
-  const path = resolvePath(basePath, target);
+  const path = target ? resolvePath(basePath, target) : null;
   const bytes = path ? ctx.files[path] : null;
-  if (!bytes) return;
+  if (!bytes || !bytes.length) return;
+  if (PPTX_DEAD_IMAGE.test(path)) return;
+
   const xf = deep(kid(pic, "spPr"), "xfrm");
   const b = boxOf(ctx, xf, offset);
-  if (!b || b.w <= 0 || b.h <= 0) return;
+  if (!b || !(b.w > 0) || !(b.h > 0)) return;
 
-  const type = /\.png$/i.test(path) ? "image/png"
-            : /\.gif$/i.test(path) ? "image/gif"
-            : /\.svg$/i.test(path) ? "image/svg+xml"
-            : /\.bmp$/i.test(path) ? "image/bmp" : "image/jpeg";
-  const url = URL.createObjectURL(new Blob([bytes], { type: type }));
+  const url = URL.createObjectURL(new Blob([bytes], { type: pptxMime(path) }));
   try {
     const img = await new Promise((res, rej) => {
       const im = new Image();
       im.onload = () => res(im);
-      im.onerror = rej;
+      im.onerror = () => rej(new Error("decode"));
+      /* An SVG with no intrinsic size, or a file that is not really a
+         picture at all, can otherwise leave this pending for good. */
+      setTimeout(() => rej(new Error("slow")), 6000);
       im.src = url;
     });
-    withBox(ctx, b, (x0, y0, w, h) => ctx.x.drawImage(img, x0, y0, w, h));
+    if (img.naturalWidth) withBox(ctx, b, (x0, y0, w, h) => ctx.x.drawImage(img, x0, y0, w, h));
   } catch (err) {
-    /* an unsupported format - EMF and WMF mostly - simply does not appear */
+    /* an unsupported format simply does not appear; the slide still does */
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -584,7 +771,12 @@ async function paintFrame(ctx, gf, styles, offset) {
   if (!b) return;
   const tbl = deep(gf, "tbl");
   if (!tbl) {
-    if (deep(gf, "chart") || deep(gf, "graphicData")) ctx.charts++;
+    /* A chart, a diagram, an embedded spreadsheet or another program's
+       object. None of them carry a picture of themselves, so none can be
+       drawn - they are counted, and the teacher is told how many. */
+    const data = deep(gf, "graphicData");
+    const uri = data ? attr(data, "uri", "") : "";
+    if (deep(gf, "chart") || /chart|diagram|smartart|oleObject/i.test(uri)) ctx.charts++;
     return;
   }
   const grid = kid(tbl, "tblGrid");
@@ -593,8 +785,13 @@ async function paintFrame(ctx, gf, styles, offset) {
   const rows = kids(tbl, "tr");
   const x = ctx.x;
   let y = b.y;
+  /* Row heights in a pptx are a minimum, not a promise, and some producers
+     leave them at nought. Sharing out the frame beats stacking a column of
+     zero-height rows on top of each other. */
+  const stated = rows.reduce((a, tr) => a + num(tr, "h", 0), 0);
+  const even = rows.length ? b.h / rows.length : b.h;
   rows.forEach(tr => {
-    const rh = num(tr, "h", 0) * ctx.sy;
+    const rh = stated > 0 ? num(tr, "h", 0) * ctx.sy : even;
     let cx0 = b.x;
     kids(tr, "tc").forEach((tc, ci) => {
       const cw = (cols[ci] || 0) / total * b.w;
@@ -628,7 +825,9 @@ function drawTextBody(ctx, body, bx, by, bw, bh, styles, kind) {
   const lstDef = kid(body, "lstStyle");
 
   const lines = [];
-  kids(body, "p").forEach(p => {
+  const paras = kids(body, "p");
+  if (paras.length > 400) paras.length = 400;      /* a wall of text is still a wall */
+  paras.forEach(p => {
     const pPr = kid(p, "pPr");
     const lvl = parseInt(attr(pPr, "lvl", "0"), 10) || 0;
     const dflt = (styles[kind] && styles[kind][lvl]) || (styles.other && styles.other[lvl]) || {};
@@ -656,8 +855,12 @@ function drawTextBody(ctx, body, bx, by, bw, bh, styles, kind) {
       if (r.localName === "br") { runs.push({ br: true }); continue; }
       if (r.localName !== "r") continue;
       const rPr = kid(r, "rPr");
-      const szPt = (num(rPr, "sz", null) || (lvlRPr && num(lvlRPr, "sz", null)) || dflt.sz ||
-                    (kind === "title" ? 4400 : 1800)) / 100;
+      let szPt = (num(rPr, "sz", null) || (lvlRPr && num(lvlRPr, "sz", null)) || dflt.sz ||
+                  (kind === "title" ? 4400 : 1800)) / 100;
+      /* PowerPoint allows 1 to 4000 point; anything outside that came from a
+         converter, and a canvas asked for a 0px font draws nothing at all. */
+      if (!isFinite(szPt) || szPt < 1) szPt = 18;
+      if (szPt > 400) szPt = 400;
       const latin = kid(rPr, "latin");
       runs.push({
         text: (kid(r, "t") ? kid(r, "t").textContent : "") || "",

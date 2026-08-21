@@ -20,6 +20,18 @@ window.addEventListener("keydown", e => {
     return;
   }
   if (!running) return;
+  /* P works from either side of the door. Everything that walks or aims is
+     shut off while the lens is up, so the two never fight each other. */
+  if (k === "p") { e.preventDefault(); toggleSelfie(); return; }
+  if (Selfie.on) {
+    if (k === "escape") { exitSelfie(); return; }
+    if (k === " " || k === "enter") { e.preventDefault(); requestSelfieShot(); return; }
+    if (k === "arrowleft") { e.preventDefault(); nudgeSelfie(-0.07, 0); return; }
+    if (k === "arrowright") { e.preventDefault(); nudgeSelfie(0.07, 0); return; }
+    if (k === "arrowup") { e.preventDefault(); nudgeSelfie(0, 0.05); return; }
+    if (k === "arrowdown") { e.preventDefault(); nudgeSelfie(0, -0.05); return; }
+    return;
+  }
   keys[k] = true;
   if (k === "v") toggleView();
   else if (k === "m") toggleMap();
@@ -102,6 +114,9 @@ document.addEventListener("mousemove", e => {
     lookDrag.moved += Math.abs(dx) + Math.abs(dy);
     lookDrag.x = e.clientX; lookDrag.y = e.clientY;
     if (lookDrag.moved > 4) $("gl").classList.add("dragging");
+    /* In selfie mode the same drag reframes the shot rather than turning
+       the visitor's head - the lens is the thing that moves. */
+    if (Selfie.on) { nudgeSelfie(dx * 0.0042, -dy * 0.0030); return; }
     Player.yaw -= dx * 0.0034;
     Player.pitch -= dy * 0.0034;
     Player.pitch = Math.max(-1.32, Math.min(1.32, Player.pitch));
@@ -134,6 +149,7 @@ window.addEventListener("mouseup", e => {
   lookDrag = null;
   $("gl").classList.remove("dragging");
   if (locked) return;                               // lock arrived during the press
+  if (Selfie.on) return;                            // framing, not walking
   if (d.moved >= 6) return;                         // a drag, not a click
   if (act({ clientX: d.sx, clientY: d.sy })) return;   // landed on a work or sticker
   tryPointerLock();                                 // empty wall: take the pointer
@@ -142,6 +158,7 @@ window.addEventListener("blur", () => { lookDrag = null; $("gl").classList.remov
 $("gl").addEventListener("wheel", e => {
   if (!running || overlayOpen()) return;
   e.preventDefault();
+  if (Selfie.on) { zoomSelfie(e.deltaY > 0 ? 0.12 : -0.12); return; }
   fovTarget = Math.max(24, Math.min(62, fovTarget + (e.deltaY > 0 ? 4 : -4)));
 }, { passive: false });
 
@@ -170,9 +187,14 @@ function setupTouch() {
         nub.style.transform = "translate(" + dx + "px," + dy + "px)";
         touchState.mx = dx / max; touchState.mz = dy / max;
       } else if (touchState.look && t.identifier === touchState.look.id) {
-        Player.yaw -= (t.clientX - touchState.look.x) * 0.005;
-        Player.pitch -= (t.clientY - touchState.look.y) * 0.005;
-        Player.pitch = Math.max(-1.3, Math.min(1.3, Player.pitch));
+        if (Selfie.on) {
+          nudgeSelfie((t.clientX - touchState.look.x) * 0.006,
+                      -(t.clientY - touchState.look.y) * 0.0045);
+        } else {
+          Player.yaw -= (t.clientX - touchState.look.x) * 0.005;
+          Player.pitch -= (t.clientY - touchState.look.y) * 0.005;
+          Player.pitch = Math.max(-1.3, Math.min(1.3, Player.pitch));
+        }
         touchState.look.x = t.clientX; touchState.look.y = t.clientY;
         touchState.look.moved += 1;
       }
@@ -182,7 +204,8 @@ function setupTouch() {
     for (const t of e.changedTouches) {
       if (t.identifier === padId) { padId = null; nub.style.transform = ""; touchState.mx = 0; touchState.mz = 0; }
       else if (touchState.look && t.identifier === touchState.look.id) {
-        if (touchState.look.moved < 3) act({ clientX: touchState.look.sx, clientY: touchState.look.sy });
+        if (touchState.look.moved < 3 && !Selfie.on)
+          act({ clientX: touchState.look.sx, clientY: touchState.look.sy });
         touchState.look = null;
       }
     }

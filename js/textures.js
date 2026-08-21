@@ -85,6 +85,34 @@ function skyTexture() {
   return t;
 }
 
+/* Travertine: the speckled cream stone the plinths and benches are cut
+   from. Drawn once and shared, because a dozen plinths all want it. */
+let travTex = null;
+function travertineTexture() {
+  if (travTex) return travTex;
+  const S = 256, c = cvs(S, S), x = c.getContext("2d");
+  x.fillStyle = "#E4DCCB"; x.fillRect(0, 0, S, S);
+  /* soft banding, the way cut stone shows its bedding */
+  for (let i = 0; i < 9; i++) {
+    x.fillStyle = "rgba(214,203,183," + (0.10 + (i % 3) * 0.05) + ")";
+    x.fillRect(0, (i * 31 + 7) % S, S, 6 + (i % 4) * 5);
+  }
+  /* the pitting travertine is known for */
+  for (let i = 0; i < 900; i++) {
+    const px = Math.random() * S, py = Math.random() * S, r = 0.5 + Math.random() * 2.1;
+    x.fillStyle = Math.random() < 0.45
+      ? "rgba(255,252,244," + (0.18 + Math.random() * 0.3) + ")"
+      : "rgba(178,166,145," + (0.14 + Math.random() * 0.34) + ")";
+    x.beginPath(); x.arc(px, py, r, 0, 6.3); x.fill();
+  }
+  travTex = new THREE.CanvasTexture(c);
+  travTex.wrapS = travTex.wrapT = THREE.RepeatWrapping;
+  travTex.repeat.set(1.6, 1.6);
+  travTex.encoding = THREE.sRGBEncoding;
+  travTex.anisotropy = maxAniso;
+  return travTex;
+}
+
 function radialTexture(stops) {
   const S = 256, c = cvs(S, S), x = c.getContext("2d");
   const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
@@ -117,6 +145,16 @@ const PLAQUE_H = 210;
 const PLAQUE_PAD = 38;
 const PLAQUE_MIN_W = 420;
 
+function roundRect(x, px, py, w, h, r) {
+  x.beginPath();
+  x.moveTo(px + r, py);
+  x.arcTo(px + w, py, px + w, py + h, r);
+  x.arcTo(px + w, py + h, px, py + h, r);
+  x.arcTo(px, py + h, px, py, r);
+  x.arcTo(px, py, px + w, py, r);
+  x.closePath();
+}
+
 function plaqueTexture(art, num, maxAspect) {
   const measure = cvs(8, 8).getContext("2d");
   const TITLE_F = "700 56px Helvetica, Arial, sans-serif";
@@ -147,12 +185,21 @@ function plaqueTexture(art, num, maxAspect) {
   const c = cvs(W, PLAQUE_H), x = c.getContext("2d");
   x.fillStyle = "#FFFDF8"; x.fillRect(0, 0, W, PLAQUE_H);
   x.strokeStyle = "#C7A85C"; x.lineWidth = 3.5; x.strokeRect(8, 8, W - 16, PLAQUE_H - 16);
-  x.fillStyle = "#0B4038"; x.font = "700 26px Helvetica, Arial, sans-serif";
-  x.fillText(pad3(num), PLAQUE_PAD, 50);
+  /* The catalogue number reads at a distance now - larger, tracked out and
+     set in the gallery's own green on a soft chip. It is still a good deal
+     smaller and quieter than the title, so the eye reaches the name first. */
+  const numText = pad3(num);
+  x.font = "700 34px Helvetica, Arial, sans-serif";
+  const numW = x.measureText(numText).width;
+  x.fillStyle = "rgba(11,64,56,.08)";
+  roundRect(x, PLAQUE_PAD - 11, 22, numW + 22, 42, 6);
+  x.fill();
+  x.fillStyle = "#0B4038";
+  x.fillText(numText, PLAQUE_PAD, 44);
   x.fillStyle = "#0B0E11"; x.font = TITLE_F;             /* near-black on near-white */
-  x.fillText(title, PLAQUE_PAD, 112);
+  x.fillText(title, PLAQUE_PAD, 116);
   x.fillStyle = "#3F464F"; x.font = AUTHOR_F;            /* darker than the old slate */
-  x.fillText(author, PLAQUE_PAD, 166);
+  x.fillText(author, PLAQUE_PAD, 170);
 
   const t = new THREE.CanvasTexture(c);
   t.encoding = THREE.sRGBEncoding; t.anisotropy = maxAniso;

@@ -297,3 +297,57 @@
   color:rgba(150,214,201,.95);white-space:nowrap;
 }
 .queue .close{position:absolute;top:16px;right:16px;z-index:2}
+
+/* ---------- selfie mode ---------- */
+/* Deliberately spare: a shutter, two reach controls and a way out. In a
+   room this carefully lit, a row of buttons is the last thing that should
+   be competing with the walls. */
+.selfie-bar{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:16px;
+  padding:12px 18px;border-radius:999px;
+  background:rgba(18,21,24,.62);border:1px solid rgba(244,201,124,.32);
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  pointer-events:auto;z-index:5;
+}
+.selfie-bar.hidden{display:none}
+.shutter{
+  width:62px;height:62px;border-radius:50%;padding:0;cursor:pointer;
+  background:transparent;border:2.5px solid rgba(255,244,226,.92);
+  display:grid;place-items:center;transition:transform .12s;
+}
+.shutter i{
+  display:block;width:46px;height:46px;border-radius:50%;
+  background:rgba(255,244,226,.94);transition:transform .12s,background .12s;
+}
+.shutter:hover i{background:#fff;transform:scale(1.04)}
+.shutter:active{transform:scale(.94)}
+.selfie-nudge{
+  width:38px;height:38px;border-radius:50%;cursor:pointer;
+  font:600 20px/1 var(--body);color:rgba(255,244,226,.85);
+  background:rgba(255,255,255,.08);border:1px solid rgba(244,201,124,.30);
+}
+.selfie-nudge:hover{background:rgba(255,226,170,.18)}
+.selfie-quit{margin-left:4px}
+/* Movement controls would only fight the camera, so they go away. The walk
+   pad is turned on with an inline style the first time a finger touches the
+   screen, so only !important can put it away again. */
+body.selfie-on .tray,body.selfie-on #reticle,body.selfie-on #hint{display:none}
+body.selfie-on #touch{display:none !important}
+
+#selfie-flash{
+  position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:60;
+}
+
+/* the print */
+.card.shot{max-width:min(1000px,94vw);padding:0;overflow:hidden}
+.card.shot .shot-stage{
+  background:#0C0F12;display:grid;place-items:center;
+  max-height:74vh;overflow:hidden;
+}
+.card.shot .shot-stage img{display:block;max-width:100%;max-height:74vh;width:auto;height:auto}
+.card.shot .shot-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 20px;flex-wrap:wrap;
+}
+.card.shot .shot-bar .row{display:flex;gap:10px}

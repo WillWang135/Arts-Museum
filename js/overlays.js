@@ -254,6 +254,7 @@ function openHelp() {
         '<dt>5</dt><dd>Eraser. Click a sticker to take it back off.</dd>' +
         '<dt>0</dt><dd>Put the stickers away.</dd>' +
         '<dt>M</dt><dd>Show or hide the floorplan.</dd>' +
+        '<dt>P</dt><dd>Selfie mode. You turn to face the camera with whatever you were looking at behind you \u2014 drag to reframe, scroll or use +/\u2212 for how far away the camera is held, then press the shutter. Save the photograph or take another. Press P again to carry on walking. On a phone, the Selfie chip does the same thing.</dd>' +
         '<dt>Feature wall</dt><dd>The strip above the featured work runs the whole museum\u2019s music: previous, play, next, and a mode for what happens when a song ends \u2014 repeat it, take the next in order, or shuffle.</dd>' +
         '<dt>Pause all</dt><dd>The chip under the map stops every track and video at once, wherever you are. Each one keeps its place, so starting it again carries on from there.</dd>' +
       '</dl>' +

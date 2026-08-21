@@ -21,6 +21,26 @@ function buildMaterials() {
     wood: new THREE.MeshStandardMaterial({ color: 0x715C45, roughness: 0.55 }),
     ropeMat: new THREE.MeshStandardMaterial({ color: 0x333A40, roughness: 0.92 }),
     leaf: new THREE.MeshStandardMaterial({ color: 0x36613F, roughness: 0.85 }),
+
+    /* ---- the gallery palette ----
+       Cream limestone, speckled travertine, terracotta, olive and charcoal,
+       with a pale oak for the furniture legs. Everything decorative in the
+       building is cut from one of these six, which is what holds the rooms
+       together as a designed space rather than a collection of objects. */
+    travertine: new THREE.MeshStandardMaterial({ map: travertineTexture(), roughness: 0.72, metalness: 0.0 }),
+    limestone: new THREE.MeshStandardMaterial({ color: 0xE9E2D2, roughness: 0.82 }),
+    limestoneLo: new THREE.MeshStandardMaterial({ color: 0xE3DBC9, roughness: 0.8, flatShading: true }),
+    terracotta: new THREE.MeshStandardMaterial({ color: 0xC26A3C, roughness: 0.68 }),
+    terracottaLo: new THREE.MeshStandardMaterial({ color: 0xBC6537, roughness: 0.66, flatShading: true }),
+    olive: new THREE.MeshStandardMaterial({ color: 0x5B6248, roughness: 0.76 }),
+    oliveLo: new THREE.MeshStandardMaterial({ color: 0x565D45, roughness: 0.74, flatShading: true }),
+    charcoal: new THREE.MeshStandardMaterial({ color: 0x33383B, roughness: 0.66 }),
+    charcoalLo: new THREE.MeshStandardMaterial({ color: 0x2F3437, roughness: 0.64, flatShading: true }),
+    linen: new THREE.MeshStandardMaterial({ color: 0xE7DFCC, roughness: 0.92 }),
+    paleWood: new THREE.MeshStandardMaterial({ color: 0xA97A4E, roughness: 0.62 }),
+    pebble: new THREE.MeshStandardMaterial({ color: 0xD9D2C3, roughness: 0.8, flatShading: true }),
+    leafDeep: new THREE.MeshStandardMaterial({ color: 0x2F5138, roughness: 0.86, side: THREE.DoubleSide }),
+    leafMid: new THREE.MeshStandardMaterial({ color: 0x3E6B45, roughness: 0.84, side: THREE.DoubleSide }),
     cove: new THREE.MeshBasicMaterial({ color: 0xFFEBCB }),
     blob: new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, opacity: 0.5 }),
     /* the artwork click target must never touch the colour or depth buffer */

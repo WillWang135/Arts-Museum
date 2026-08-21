@@ -39,6 +39,7 @@ function enterMuseum() {
 }
 
 function exitMuseum() {
+  exitSelfie();
   running = false;
   stopAllMedia();                 // nothing carries on playing into the setup screen
   if (document.pointerLockElement) document.exitPointerLock();

@@ -112,8 +112,9 @@ function frameLoop() {
   const dt = Math.min(clock.getDelta(), 0.06);
   const now = performance.now(), t = now / 1000;
 
-  if (!overlayOpen()) stepPlayer(dt);
-  updateCamera(dt);
+  if (!overlayOpen() && !Selfie.on) stepPlayer(dt);
+  if (Selfie.on) updateSelfieCamera(dt);
+  else updateCamera(dt);
   updateVisitors(dt, t);
   updateSpots(dt, now);
   updateDaylight(dt, t);
@@ -126,7 +127,7 @@ function frameLoop() {
 
   if (now - lastMap > 90) { lastMap = now; paintMinimap(); }
 
-  if (!overlayOpen() && now - lastAim > 90) {
+  if (!overlayOpen() && !Selfie.on && now - lastAim > 90) {
     lastAim = now;
     const hit = castFrom(ndcCenterIfLocked());
     const near = hit && hit.distance < 14;
@@ -157,6 +158,9 @@ function frameLoop() {
   }
 
   renderer.render(scene, camera);
+  /* The read has to follow the draw in the same turn - a canvas without a
+     preserved drawing buffer is empty by the time the next tick arrives. */
+  if (Selfie.want) captureSelfie();
 }
 function hint(el, text) { if (el.textContent !== text) el.textContent = text; el.classList.add("show"); }
 function ndcCenterIfLocked() {

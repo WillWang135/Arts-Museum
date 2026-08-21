@@ -16,6 +16,12 @@
   .card .metatop{gap:14px}
   .card .mediabar{width:100%}
   .card .mediabar .btn{flex:1;min-width:0}
+  .selfie-bar{bottom:18px;gap:12px;padding:10px 14px}
+  .shutter{width:56px;height:56px}
+  .shutter i{width:41px;height:41px}
+  .card.shot .shot-bar{justify-content:center}
+  .card.shot .shot-bar .row{flex:1;min-width:0}
+  .card.shot .shot-bar .row .btn{flex:1;min-width:0}
   .queue{width:calc(100vw - 24px);max-height:86vh}
   .queue-row{grid-template-columns:32px 40px 1fr auto;gap:10px;padding:10px}
   .queue-head{padding:20px 20px 14px}
@@ -35,6 +41,10 @@
   .rail{top:10px}
   .rail-r{right:10px;flex-wrap:nowrap}
   .rail-l{left:10px;top:56px}
+  /* The camera is the one chip that earns its place by its icon alone,
+     so on a phone it drops its label and stays out of the way. */
+  #selfie-btn{font-size:0;padding:8px 9px;text-align:center}
+  #selfie-btn svg{margin:0;width:17px;height:17px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important;transition-duration:.01ms !important}

@@ -9,7 +9,7 @@
    ============================================================ */
 /* Shown on the home screen and in the bottom-left of the museum. Set it
    here and both follow - they used to be two literals that could drift. */
-const APP_VERSION = "V1.1";
+const APP_VERSION = "V1.2";
 
 /* Audio and video travel inside the session file like everything else, as
    one long data URL, so a single large clip can outweigh a whole class of

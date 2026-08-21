@@ -43,6 +43,8 @@ Codes skip `I`, `L`, `O`, `0` and `1` — nothing a student can misread aloud.
 
 A domed rotunda with a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
 
+The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; benches, low seating, stools and planting fill the corners. It is deliberately restrained: the walls are the exhibition.
+
 **Controls**
 
 | Key | Does |
@@ -58,15 +60,18 @@ A domed rotunda with a glazed oculus, brass-trimmed walls and an LED title ring 
 | Play button on a work | Start or pause a video or track. Videos also get a sound toggle |
 | `1` `2` `3` `4` | Pick a sticker, then click beside a frame |
 | `5` / `0` | Eraser / put stickers away |
+| `P` | Selfie mode — take a photograph of yourself in the gallery |
 | `M` `H` | Map · Controls |
 
-On a tablet: drag the left circle to walk, drag anywhere else to look, tap a work to open it.
+On a tablet: drag the left circle to walk, drag anywhere else to look, tap a work to open it. The camera chip in the left rail opens selfie mode.
 
 **Stickers** — award <kbd>1</kbd> Wonderful work · <kbd>2</kbd> Amazing effort · <kbd>3</kbd> Excellent standard · <kbd>4</kbd> Standout achievement.
 
 **Audio and video** — nothing plays until someone presses play. Sound is local: loudest beside a work, fading to silence about 14 m away, and only the nearest three are ever audible at once. Three videos play at a time; starting a fourth stands down whichever is furthest off. A clip loops once started; pausing it leaves it paused.
 
 **Music** — a track does not hang in a frame. It gets a strip of wall above a work: title, one button, and a waveform that fills as it plays and settles when paused. Give it a cover and it hangs as a picture with the strip above that instead.
+
+**Selfies** — press <kbd>P</kbd> in front of a work and you turn to face the camera with the artwork behind you, phone raised. Drag to reframe, scroll for how far away it is held, then press the shutter: the photograph is the gallery itself, with no map, chips or controls in it. Save it, take another, or press <kbd>P</kbd> to carry on walking from exactly where you stopped.
 
 **Cover art** — an MP3 or MP4 can be given its own PNG or JPG from the setup screen. It becomes the picture on the wall and the poster before playback; the clip itself is untouched, and it stays optional.
 
@@ -97,7 +102,7 @@ Full walkthrough: **[SETUP.md](SETUP.md)**.
 ## Project structure
 
 ```
-student-art-museum.html   markup and the load order — nothing else
+index.html                markup and the load order — nothing else
 css/                      base · upload · share · museum · responsive
 js/
   config.js               ← the only file most people edit
@@ -107,7 +112,9 @@ js/
   geometry, floorplan           room shape, shared by the 2D plan and 3D build
   upload, join, publish         the setup screen
   runtime                       variables the 3D files share
-  textures … renderer           surfaces, architecture, people, camera, loop
+  textures … overlays           surfaces, architecture, people, cards
+  selfie                        photo mode: the camera, the pose, the print
+  renderer                      the frame loop
   input, hud, main              controls and the door between screens
 ```
 
@@ -130,5 +137,5 @@ The `<script>` tags are ordinary ones rather than ES modules, because modules re
 ---
 
 <div align="center">
-<sub>Designed by Mr Wang · V1.1</sub>
+<sub>Designed by Mr Wang · V1.2</sub>
 </div>

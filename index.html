@@ -70,7 +70,7 @@
   </div>
 
   <footer class="dock">
-    <span class="credit" id="home-credit">Designed by Mr Wang - V1.1</span>
+    <span class="credit" id="home-credit">Designed by Mr Wang - V1.2</span>
     <span class="count" id="count-text">No artwork yet</span>
     <input id="restore-input" type="file" accept="application/json,.json" hidden>
     <button class="btn btn-quiet" id="restore-btn" type="button">Open saved museum</button>
@@ -93,6 +93,7 @@
       <button class="chip" id="view-btn" type="button">View: <b>First person</b></button>
       <button class="chip" id="map-btn" type="button">Map</button>
       <button class="chip" id="hush-btn" type="button" title="Pause all audio and video"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>Pause all</button>
+      <button class="chip" id="selfie-btn" type="button" title="Selfie mode (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.4-2h7.2L17 8h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Selfie</button>
       <button class="chip hidden" id="code-chip" type="button">Code: <b>&mdash;</b></button>
     </div>
 
@@ -114,7 +115,14 @@
       <button class="stamp" data-stamp="erase" type="button" title="Remove a sticker"></button>
     </div>
 
-    <div id="museum-credit">V1.1 - By Mr Wang</div>
+    <div id="museum-credit">V1.2 - By Mr Wang</div>
+
+    <div class="selfie-bar hidden" id="selfie-bar">
+      <button class="selfie-nudge" id="selfie-out" type="button" title="Hold the camera further away">&minus;</button>
+      <button class="shutter" id="shutter-btn" type="button" aria-label="Take the photo"><i></i></button>
+      <button class="selfie-nudge" id="selfie-in" type="button" title="Bring the camera closer">+</button>
+      <button class="chip selfie-quit" id="selfie-exit" type="button">Done</button>
+    </div>
 
     <div class="toast" id="toast"></div>
 
@@ -124,6 +132,7 @@
   </div>
 
   <div id="loading"><div style="text-align:center"><div class="bar"><i></i></div><p>Hanging the exhibition</p></div></div>
+  <div id="selfie-flash"></div>
   <div id="overlay-root"></div>
   <div id="media-pool" aria-hidden="true"></div>
 </div>
@@ -177,6 +186,7 @@
 <script src="js/stickers.js"></script>
 <script src="js/picking.js"></script>
 <script src="js/overlays.js"></script>
+<script src="js/selfie.js"></script>
 <script src="js/renderer.js"></script>
 
 <!-- controls, and the door between the two screens -->

@@ -302,6 +302,13 @@ function buildAvatar() {
     topStyle: "jacket", bottomStyle: "trousers", bag: "crossbody", face: 1
   });
   avatarParts = f.parts;
+  /* The phone rides in the raised hand and is only shown in selfie mode.
+     Built once with the figure rather than added and removed, so nothing
+     has to be rebuilt every time somebody takes a picture. */
+  const hand = f.parts.arms[1].pivot;
+  avatarPhone = piece(hand, 0.078, 0.146, 0.017, fm(0x22252A, 0.35), 0.015, -0.515, 0.085, false);
+  piece(avatarPhone, 0.064, 0.124, 0.004, fm(0x59636E, 0.30), 0, 0, 0.011, false);   // the screen
+  avatarPhone.visible = false;
   f.group.visible = false;
   scene.add(f.group);
   return f.group;

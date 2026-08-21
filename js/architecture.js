@@ -173,27 +173,53 @@ function buildShell(open) {
       t0: G.APO - 1.6, t1: G.APO + 1.3, doorHalf: G.DOOR_W / 2 - 0.45
     });
 
+    /* Furnishing, placed by index so a rebuild puts everything back where
+       it was. A wing gets one piece on a plinth down the middle, seating
+       either side of it and a plant by the door; an alcove gets a single
+       vessel. Room to walk round matters more here than variety - these
+       are the supporting cast, and the walls are the show. */
     if (isWing) {
       const m1 = at(G.APO + L * 0.5, 0, 0);
-      const top = makePlinth(m1.x, m1.z, 0.95, 0.44);
-      if (k % 2 === 0) makeVase(m1.x, m1.z, top, MAT.porcelain); else makeSculpture(m1.x, m1.z, top);
-      const b1 = at(G.APO + L * 0.22, 0, 0), b2 = at(G.APO + L * 0.78, 0, 0);
+      const drum = k % 2 === 1;
+      const top = makePlinth(m1.x, m1.z, drum ? 0.92 : 0.98, drum ? 0.34 : 0.42,
+        drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
+      if (drum) makeBowl(m1.x, m1.z, top, MAT.limestone, 1.0);
+      else makeSculpture(m1.x, m1.z, top, k, 1.05);
+
+      const b1 = at(G.APO + L * 0.24, 0, 0), b2 = at(G.APO + L * 0.76, 0, 0);
       makeBench(b1.x, b1.z, ry + Math.PI / 2);
-      makeBench(b2.x, b2.z, ry + Math.PI / 2);
+      if (k % 2 === 0) makeSofa(b2.x, b2.z, ry + Math.PI / 2);
+      else makeBench(b2.x, b2.z, ry + Math.PI / 2);
+
+      const pl = at(G.APO + 1.5, half - 0.72, 0);
+      makePlanter(pl.x, pl.z, k % 2 ? "blades" : "broad", k % 2 ? "ribbed" : "facet");
+      const st = at(G.APO + L - 1.5, -(half - 0.72), 0);
+      makeStool(st.x, st.z, k % 2 ? MAT.olive : MAT.terracotta);
     } else {
       const m1 = at(G.APO + L * 0.55, 0, 0);
-      const top = makePlinth(m1.x, m1.z, 1.0, 0.4);
-      makeVase(m1.x, m1.z, top, k % 2 === 0 ? MAT.glaze : MAT.porcelain);
+      const top = makePlinth(m1.x, m1.z, 1.0, 0.33, MAT.limestone, "drum");
+      if (k % 2 === 0) makeVase(m1.x, m1.z, top, MAT.terracotta, true, 0.92);
+      else makeVase(m1.x, m1.z, top, MAT.olive, false, 0.92);
     }
   });
 
+  /* The rotunda: four plinths off the corners of the walk, seating and
+     planting against the outer wall where nobody is trying to stand. */
   [45, 135, 225, 315].forEach((deg, i) => {
     const a = deg * Math.PI / 180, r = 9.6;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    const top = makePlinth(x, z, 1.05, 0.46);
-    if (i % 2 === 0) makeVase(x, z, top, i === 0 ? MAT.glaze : MAT.porcelain);
-    else makeSculpture(x, z, top);
+    const drum = i % 2 === 1;
+    const top = makePlinth(x, z, drum ? 1.02 : 1.08, drum ? 0.36 : 0.44,
+      drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
+    if (i === 1) makeVase(x, z, top, MAT.terracotta, true, 1.0);
+    else if (i === 3) makeBowl(x, z, top, MAT.limestone, 1.05);
+    else makeSculpture(x, z, top, i + 2, 1.1);
   });
   [[7.9, 6.2], [-7.9, 6.2]].forEach(p => makeBench(p[0], p[1], 0));
-  [[10.4, -6.0], [-10.4, -6.0]].forEach(p => makePlanter(p[0], p[1]));
+  makePlanter(10.4, -6.0, "broad", "bowl");
+  makePlanter(-10.4, -6.0, "bushy", "terracotta");
+  makeStool(9.4, 7.4, MAT.terracotta);
+  makeStool(-9.4, 7.4, MAT.olive);
+  makeSideTable(0, -10.6, MAT.olive);
+  makePlanter(2.6, -10.4, "blades", "ribbed", 0.92);
 }

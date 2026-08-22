@@ -61,7 +61,7 @@ The fit-out is cut from one palette — cream limestone, speckled travertine, te
 | `1` `2` `3` `4` | Pick a sticker, then click beside a frame |
 | `5` / `0` | Eraser / put stickers away |
 | `P` | Selfie mode — take a photograph of yourself in the gallery |
-| Presentation screen | Arrows step the slides; click a slide to look closer |
+| Presentation screen | Arrows step the slides; click a slide to look closer, or with a sticker chosen, to react to it |
 | `M` `H` | Map · Controls |
 
 On a tablet: drag the left circle to walk, drag anywhere else to look, tap a work to open it. The camera chip in the left rail opens selfie mode.
@@ -72,9 +72,9 @@ On a tablet: drag the left circle to walk, drag anywhere else to look, tap a wor
 
 **Music** — a track does not hang in a frame. It gets a strip of wall above a work: title, one button, and a waveform that fills as it plays and settles when paused. Give it a cover and it hangs as a picture with the strip above that instead.
 
-**Presentation** — add a `.pptx`, or a set of slide images, on the setup screen and it hangs on the back of the feature wall: one slide at a time, arrows either side, and the position in the deck. Nothing advances on its own and nothing can be edited from inside. Click the slide and it opens at about four fifths of the window with the gallery still visible, softened, behind it.
+**Presentation** — export your slides as PNG or JPG (in PowerPoint, **File ‣ Export ‣ PNG**) and add them on the setup screen. They hang on the back of the feature wall in the order you add them: one slide at a time, arrows either side, and the position in the deck. Nothing advances on its own and nothing can be edited from inside. Click a slide and it opens at about four fifths of the window with the gallery still visible, softened, behind it. Each slide takes stickers of its own, kept against that slide and no other.
 
-The deck is unpacked and drawn to pictures in the page itself — there is no server and nothing is uploaded anywhere. Text, fonts, images, shapes, tables, backgrounds, colours and layout come through, at any slide size, with or without a theme or master. Anything it cannot draw — an unusual image format, a shape from another program, a slide whose XML is damaged — is skipped and the rest of the slide still appears. Animations and transitions are ignored, as a slide viewer should; charts and SmartArt cannot be drawn at all, because PowerPoint stores those as instructions for itself rather than as a picture — paste one in as an image if you need to keep it. You are told what was left out when the deck goes in, and a file that will not open at all says so and leaves the museum exactly as it was.
+Reading `.pptx` in the browser was tried and withdrawn — text overlapped where layouts were inherited, and several large pictures at once could take the museum down. A picture of a slide is what PowerPoint puts on a projector anyway, and nothing about it can go wrong. `js/pptx.js` is still in the repository, unloaded, if it is ever worth another attempt.
 
 **Selfies** — press <kbd>P</kbd> in front of a work and you turn to face the camera with the artwork behind you, phone raised. Drag to reframe, scroll for how far away it is held, then press the shutter: the photograph is the gallery itself, with no map, chips or controls in it. Save it, take another, or press <kbd>P</kbd> to carry on walking from exactly where you stopped.
 
@@ -113,7 +113,7 @@ js/
   config.js               ← the only file most people edit
   state, codes, sessions        artwork list, join codes, session files
   media                         audio and video artworks, playback, cover art
-  pptx, deck                    a .pptx read in the page, and the slide on the wall
+  deck                          the slide images on the back of the feature wall
   music-panel                   the wall strip a track gets instead of a frame
   geometry, floorplan           room shape, shared by the 2D plan and 3D build
   upload, join, publish         the setup screen
@@ -138,7 +138,7 @@ The `<script>` tags are ordinary ones rather than ES modules, because modules re
 | **"THREE is not defined"** | A school filter is blocking the 3D library. The page tries three mirrors; to remove the dependency entirely, see SETUP.md. |
 | **Page opens blank** | The `css` and `js` folders aren't beside the HTML file. |
 | **Session feels slow to load** | Check the size in the share panel. Around 25 works lands near 3 MB; video is far heavier, so trim clips before adding them. Files over 200 MB are refused. |
-| **A .pptx won't open** | Whatever the reason, the deck box says so in the page. It needs a current browser — Chrome, Edge, Safari 16.4 or Firefox 113 — for the unzipping, and decks are capped at 40 MB. The reliable fallback is **File ‣ Export ‣ PNG** in PowerPoint: drop the slide images into the same control and they hang exactly the same way. |
+| **A .pptx won't upload** | It isn't meant to. Export the slides as images — **File ‣ Export ‣ PNG** in PowerPoint, **File ‣ Download ‣ PNG** in Google Slides — and add those. |
 | **A .mov won't play** | Chrome often cannot decode QuickTime. It still hangs and takes stickers, but shows a placeholder — re-export as MP4 (H.264). |
 
 ---

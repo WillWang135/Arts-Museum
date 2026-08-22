@@ -73,9 +73,15 @@ function act(e) {
      cannot get to whatever is behind them. */
   if (hit.visitor) return askVisitorToMove(hit.visitor, performance.now());
 
-  /* the presentation: an arrow steps it, the slide itself opens it larger */
+  /* the presentation: an arrow steps it; the slide takes a reaction or opens */
   if (hit.deckStep) { deckGo(hit.deckStep); return true; }
-  if (hit.deckOpen) { openDeckViewer(); return true; }
+  if (hit.deckOpen) {
+    /* a sticker chosen means a reaction on this slide, exactly the way a
+       hung work behaves; nothing chosen means look closer */
+    if (stamp && DeckScreen && DeckScreen.slots) placeSticker(DeckScreen, hit.point);
+    else openDeckViewer();
+    return true;
+  }
 
   /* A button is a button, whichever sticker happens to be selected. */
   if (hit.control && hit.frame) {

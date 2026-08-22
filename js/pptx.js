@@ -1,4 +1,28 @@
 /* ============================================================
+   PPTX -> PICTURES  --  NOT LOADED.
+
+   This file is not referenced by index.html and takes no part in
+   the museum. It reads a .pptx in the browser and draws each
+   slide to a canvas, and it very nearly worked: a simple deck
+   came out close to right, but text overlapped where a layout
+   was inherited, several large pictures at once could exhaust
+   the tab and take the museum down with it, and once that had
+   happened even decks that had been fine stopped loading.
+
+   Rather than keep patching a renderer that has to reimplement
+   PowerPoint to be trustworthy, the museum now takes slide
+   images - which is what PowerPoint puts on a projector anyway.
+   See js/deck.js.
+
+   It is kept because the parsing is the hard part and it is all
+   here: zip reading, the relationship graph, themes, masters,
+   layouts, shapes, tables and text. If this is ever worth
+   another attempt, produce the same shape addDeckSlides() makes
+   - {id, src, w, h} per slide - and the museum will not know the
+   difference.
+   ============================================================ */
+
+/* ============================================================
    PPTX -> PICTURES
 
    A .pptx is a zip of XML, and a browser cannot show one. There

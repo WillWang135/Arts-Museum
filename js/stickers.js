@@ -18,19 +18,27 @@ function stickerMesh(kind, scale) {
   return g;
 }
 
-function attachSticker(frame, slotIndex, kind, record) {
-  const slot = frame.slots[slotIndex];
+/* A surface that can take reactions: a hung frame, or the presentation
+   screen. Both have a group to hang them in, eight positions, and an id to
+   record them against - and for the screen that id is the slide showing,
+   not the deck, so a reaction stays on the page it was left on. */
+function surfaceId(surface) {
+  return surface.art ? surface.art.id : surface.stickerId;
+}
+
+function attachSticker(surface, slotIndex, kind, record) {
+  const slot = surface.slots[slotIndex];
   if (!slot || slot.taken) return null;
-  const g = stickerMesh(kind, frame.scale);
+  const g = stickerMesh(kind, surface.scale);
   g.position.set(slot.x, slot.y, slot.z);
-  g.userData.frame = frame;
+  g.userData.frame = surface;
   g.userData.slotIndex = slotIndex;
   g.userData.kind = kind;
-  frame.group.add(g);
+  surface.group.add(g);
   slot.taken = g;
   StickerObjs.push(g.userData.sprite);
   g.userData.sprite.userData.holder = g;
-  if (record) State.stickers.push({ artId: frame.art.id, slot: slotIndex, type: kind });
+  if (record) State.stickers.push({ artId: surfaceId(surface), slot: slotIndex, type: kind });
   return g;
 }
 
@@ -41,8 +49,8 @@ function attachSticker(frame, slotIndex, kind, record) {
    sticker moves into it. */
 const MAX_VISIBLE_STICKERS = 8;
 
-function visibleLimit(frame) {
-  return Math.min(frame.slots.length, MAX_VISIBLE_STICKERS);
+function visibleLimit(surface) {
+  return Math.min(surface.slots.length, MAX_VISIBLE_STICKERS);
 }
 function firstFreeSlot(frame) {
   const limit = visibleLimit(frame);
@@ -84,53 +92,100 @@ function restoreStickers() {
   });
 }
 
-function placeSticker(frame, worldPoint) {
-  const local = frame.group.worldToLocal(worldPoint.clone());
-  const limit = visibleLimit(frame);
+/* ---------- reactions on a presentation slide ----------
+   The screen is one surface showing many pages, so its reactions are torn
+   down and rebuilt every time the slide changes. Anything recorded against
+   a slide that is not showing simply is not on the wall - which is the
+   whole point: a reaction left on slide three must not appear on slide four. */
+function clearSlideStickers() {
+  if (!DeckScreen || !DeckScreen.slots) return;
+  DeckScreen.slots.forEach(s => {
+    if (!s.taken) return;
+    const g = s.taken;
+    const si = StickerObjs.indexOf(g.userData.sprite);
+    if (si >= 0) StickerObjs.splice(si, 1);
+    DeckScreen.group.remove(g);
+    s.taken = null;
+  });
+}
+
+function restoreSlideStickers() {
+  if (!DeckScreen || !DeckScreen.slots) return;
+  clearSlideStickers();
+  const id = deckCurrentId();
+  DeckScreen.stickerId = id;
+  if (id === null || id === undefined) { syncViewerStickers(); return; }
+
+  const mine = State.stickers.filter(r => r.artId === id);
+  const placed = new Set();
+  mine.forEach(rec => {
+    if (rec.slot === null || rec.slot === undefined) return;
+    if (rec.slot < visibleLimit(DeckScreen) && !DeckScreen.slots[rec.slot].taken) {
+      attachSticker(DeckScreen, rec.slot, rec.type, false);
+      placed.add(rec);
+    }
+  });
+  mine.forEach(rec => {
+    if (placed.has(rec)) return;
+    const idx = firstFreeSlot(DeckScreen);
+    rec.slot = idx < 0 ? null : idx;
+    if (idx >= 0) attachSticker(DeckScreen, idx, rec.type, false);
+  });
+  syncViewerStickers();
+}
+
+function placeSticker(surface, worldPoint) {
+  const local = surface.group.worldToLocal(worldPoint.clone());
+  const limit = visibleLimit(surface);
   let best = -1, bestD = Infinity;
   for (let i = 0; i < limit; i++) {
-    const s = frame.slots[i];
+    const s = surface.slots[i];
     if (s.taken) continue;
     const d = (s.x - local.x) * (s.x - local.x) + (s.y - local.y) * (s.y - local.y);
     if (d < bestD) { bestD = d; best = i; }
   }
-  const name = frame.art.name || "Untitled";
+  const name = surface.art ? (surface.art.name || "Untitled") : ("slide " + deckLabel());
 
   if (best < 0) {
     /* Every position is taken. Record it anyway - it counts on the card,
        and it takes the first place that frees up. */
-    State.stickers.push({ artId: frame.art.id, slot: null, type: stamp });
+    State.stickers.push({ artId: surfaceId(surface), slot: null, type: stamp });
     toast(STAMPS[stamp].label + " — counted, wall is full at " + MAX_VISIBLE_STICKERS);
     return;
   }
-  popIn(attachSticker(frame, best, stamp, true));
+  popIn(attachSticker(surface, best, stamp, true));
+  if (!surface.art) syncViewerStickers();
   toast(STAMPS[stamp].label + " — " + name);
 }
 
 function removeSticker(sprite) {
   const g = sprite.userData.holder;
   if (!g) return;
-  const frame = g.userData.frame, idx = g.userData.slotIndex;
-  frame.slots[idx].taken = null;
-  frame.group.remove(g);
+  const surface = g.userData.frame, idx = g.userData.slotIndex;
+  const id = surfaceId(surface);
+  surface.slots[idx].taken = null;
+  surface.group.remove(g);
   const si = StickerObjs.indexOf(sprite);
   if (si >= 0) StickerObjs.splice(si, 1);
-  const ri = State.stickers.findIndex(r => r.artId === frame.art.id && r.slot === idx);
+  const ri = State.stickers.findIndex(r => r.artId === id && r.slot === idx);
   if (ri >= 0) State.stickers.splice(ri, 1);
 
   /* Promote the oldest sticker that has been waiting for a position. */
-  const next = firstWaiting(frame.art.id);
+  const next = firstWaiting(id);
   if (next) {
     next.slot = idx;
-    popIn(attachSticker(frame, idx, next.type, false));
+    popIn(attachSticker(surface, idx, next.type, false));
+    if (!surface.art) syncViewerStickers();
     toast("Sticker removed — another took its place");
     return;
   }
+  if (!surface.art) syncViewerStickers();
   toast("Sticker removed");
 }
 
 function pulseStickers(t, dt) {
-  Frames.forEach(f => {
+  const surfaces = DeckScreen && DeckScreen.slots ? Frames.concat([DeckScreen]) : Frames;
+  surfaces.forEach(f => {
     f.slots.forEach(s => {
       if (!s.taken) return;
       const g = s.taken;

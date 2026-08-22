@@ -274,11 +274,17 @@ function buildLights() {
   dirLight.shadow.bias = -0.0006;
   root.add(dirLight); root.add(dirLight.target);
 
+  /* Two washes down the feature wall, aimed either side of the work rather
+     than at it. Pointed at the picture at nearly three times this strength
+     they did what a bright light always does to a painting: flattened it,
+     took the colour out of the mid tones and left a sheen across the middle.
+     The wall keeps its pools of light; the artwork is lit by the room, and
+     shows the colours the student actually chose. */
   featureSpots = [];
-  [-2.9, 2.9].forEach(dx => {
-    const s = new THREE.SpotLight(0xFFF3DE, 2.9, 24, 0.46, 0.62, 1.2);
-    s.position.set(dx, 7.8, 6.0);
-    s.target.position.set(dx * 0.28, 2.45, 0);
+  [-3.4, 3.4].forEach(dx => {
+    const s = new THREE.SpotLight(0xFFF3DE, 1.05, 24, 0.50, 0.86, 1.2);
+    s.position.set(dx, 7.8, 5.4);
+    s.target.position.set(dx * 1.25, 2.1, 0);
     root.add(s); root.add(s.target);
     featureSpots.push(s);
   });
@@ -361,7 +367,30 @@ function buildDeckScreen(panelW, zBack) {
   bar.rotation.y = Math.PI;
   g.add(bar);
 
-  DeckScreen = { group: g, canvas: canvas, tex: tex, screen: screen,
+  /* Reaction positions, in two columns either side of the slide - the same
+     arrangement a hung work uses, so a class does not have to learn a second
+     one. Kept as fractions of the screen as well as in metres, because the
+     enlarged view has to put them in the same places over an HTML image. */
+  const rows = 4, sgap = Math.min(0.46, sh / rows);
+  const slots = [], slotNorm = [];
+  [1, -1].forEach(side => {
+    for (let i = 0; i < rows; i++) {
+      const lx = side * (sw / 2 + 0.30);
+      const ly = sh / 2 - sgap / 2 - i * sgap;
+      /* the screen faces -Z, so the holder is turned and its local +X with it */
+      slots.push({ x: -lx, y: ly, z: -0.02, taken: null });
+      slotNorm.push({ nx: lx / sw, ny: ly / sh });
+    }
+  });
+
+  const holder = new THREE.Group();
+  holder.position.set(0, cy, zCase - 0.13);
+  holder.rotation.y = Math.PI;
+  g.add(holder);
+
+  DeckScreen = { group: holder, slots: slots, slotNorm: slotNorm, scale: 1.05,
+                 stickerId: null,
+                 root: g, canvas: canvas, tex: tex, screen: screen,
                  barCanvas: barCanvas, barTex: barTex, bar: bar,
                  w: sw, h: sh, cy: cy, z: zCase - 0.12, drawn: -1 };
 
@@ -386,6 +415,7 @@ function buildDeckScreen(panelW, zBack) {
   target(barH * 1.5, barH * 1.4, barW * 0.38, ay, { deckStep: 1 });
 
   paintDeckScreen();
+  restoreSlideStickers();
 }
 
 /* Draws whichever slide is current, and the strip under it. Cheap, and only
@@ -424,7 +454,18 @@ function paintDeckScreen() {
   const img = deckImage(at, src);
   const draw = () => {
     if (!DeckScreen || Deck.at !== at) return;          /* stepped on already */
-    if (!img.naturalWidth) return;                      /* a slide that would not decode */
+    if (!img.naturalWidth) {
+      /* One slide that will not open says so on the wall and takes nothing
+         else down with it - the arrows still work, the rest still shows. */
+      x.fillStyle = "#14181C"; x.fillRect(0, 0, c.width, c.height);
+      x.fillStyle = "rgba(255,240,214,.55)";
+      x.font = "500 " + Math.round(c.height * 0.06) + "px Helvetica, Arial, sans-serif";
+      x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillText("Slide " + (at + 1) + " could not be shown", c.width / 2, c.height / 2);
+      DeckScreen.tex.needsUpdate = true;
+      needsRender = true;
+      return;
+    }
     x.fillStyle = "#0B0E11"; x.fillRect(0, 0, c.width, c.height);
     /* letterboxed rather than stretched: the deck keeps its own shape */
     const k = Math.min(c.width / img.width, c.height / img.height);

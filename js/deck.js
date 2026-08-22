@@ -1,16 +1,32 @@
 /* ============================================================
    THE PRESENTATION
 
-   One deck per museum, hung on the back of the feature wall. It
-   is a viewer and nothing more: a slide at a time, a way forward
-   and back, and the position in the deck. Nothing advances on its
-   own and nothing can be edited from inside the gallery.
+   A slideshow on the back of the feature wall: one picture at a
+   time, a way forward and back, and the position in the deck.
+   Nothing advances on its own and nothing can be edited from
+   inside the gallery.
 
-   Which slide is showing lives here rather than on the screen
-   object, so the wall and the enlarged view are always looking at
-   the same number.
+   Slides are images - PNG or JPG, exported from PowerPoint or
+   Google Slides. Reading a .pptx in the browser was tried and
+   withdrawn: a one-slide deck came out reasonably, but text
+   overlapped, several pictures at once could take the museum
+   down with them, and once that happened even decks that had
+   worked stopped loading. A picture of a slide is exactly what
+   PowerPoint itself shows on a projector, and there is nothing in
+   it left to go wrong.
+
+   js/pptx.js is still in the repository, unreferenced, if that is
+   ever worth another attempt. Everything below talks to slides
+   through addDeckSlides(), so a reader that produces the same
+   shape could be dropped back in without touching the museum.
+
+   Each slide carries its own id, so a reaction belongs to the
+   page it was left on and to no other.
    ============================================================ */
 const Deck = { at: 0 };
+
+const DECK_MAX_SLIDES = 120;
+const DECK_MAX_EDGE = MAX_SLIDE_EDGE;   // set in js/config.js
 
 function deckSlides() { return (State.deck && State.deck.slides) || []; }
 function deckCount() { return deckSlides().length; }
@@ -20,7 +36,15 @@ function deckClamp() {
   if (!n) { Deck.at = 0; return; }
   Deck.at = ((Deck.at % n) + n) % n;
 }
-function deckCurrent() { deckClamp(); return deckSlides()[Deck.at] || null; }
+/* A slide is {id, src, w, h}. Sessions saved by the .pptx version stored
+   plain strings, so those are read too rather than being lost. */
+function deckSlide(i) {
+  const s = deckSlides()[i];
+  if (!s) return null;
+  return typeof s === "string" ? { id: null, src: s, w: 0, h: 0 } : s;
+}
+function deckCurrent() { deckClamp(); const s = deckSlide(Deck.at); return s ? s.src : null; }
+function deckCurrentId() { deckClamp(); const s = deckSlide(Deck.at); return s ? s.id : null; }
 function deckLabel() { return deckHas() ? (Deck.at + 1) + " / " + deckCount() : ""; }
 
 /* Wraps at both ends: a deck read on a wall has no last page to fall off. */
@@ -28,16 +52,21 @@ function deckGo(step) {
   if (!deckHas()) return;
   Deck.at += step;
   deckClamp();
-  paintDeckScreen();
-  syncDeckViewer();
-  needsRender = true;
+  showDeckSlide();
 }
 function deckSet(i) {
   if (!deckHas()) return;
   Deck.at = i;
   deckClamp();
+  showDeckSlide();
+}
+/* Everything that has to agree about which slide is up. The wall, the
+   enlarged view and the reactions are refreshed from one place so they
+   cannot drift apart. */
+function showDeckSlide() {
   paintDeckScreen();
   syncDeckViewer();
+  restoreSlideStickers();
   needsRender = true;
 }
 
@@ -57,14 +86,12 @@ function renderDeckBox() {
   if (!have) return;
   $("deck-name").textContent = State.deck.name || "Presentation";
   $("deck-count").textContent = deckCount() + (deckCount() === 1 ? " slide" : " slides");
-  $("deck-thumb-img").src = State.deck.slides[0];
+  const first = deckSlide(0);
+  if (first) $("deck-thumb-img").src = first.src;
 }
 
-/* Everything the deck box has to say, said in the page. alert() blocks the
-   whole tab, some browsers let a visitor switch further ones off after the
-   first, and a suppressed alert leaves a teacher watching a screen where
-   nothing at all appears to have happened. A line under the box cannot be
-   suppressed, cannot block, and is still there to re-read a minute later. */
+/* Said in the page rather than through alert(), which blocks the tab and
+   which browsers let a visitor switch off after the first one. */
 function deckNote(text, kind) {
   const el = $("deck-note");
   if (!el) return;
@@ -73,158 +100,134 @@ function deckNote(text, kind) {
   el.classList.toggle("bad", kind === "bad");
 }
 
-/* ---------- slides as pictures ----------
-   The escape hatch, and the one thing that cannot go wrong. PowerPoint will
-   export a deck as PNGs from File > Export, Google Slides from File >
-   Download; drop those in and they hang exactly as a read deck would. When
-   a .pptx has something in it this cannot draw - a chart, a diagram, a font
-   nobody has - this is the answer, and it is worth saying so plainly rather
-   than leaving a teacher to discover it. */
-function naturalOrder(a, b) {
-  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+/* ---------- adding slides ---------- */
+/* Kept in the order they arrive. Not sorted, not rearranged: the order the
+   files come in is the order of the talk, and second-guessing that with a
+   filename sort is how slide 10 ends up between slide 1 and slide 2. */
+function deckShrink(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const long = Math.max(w, h);
+  if (!long) return null;
+  if (long <= DECK_MAX_EDGE) return null;          /* already a sensible size */
+  const k = DECK_MAX_EDGE / long;
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w * k));
+  c.height = Math.max(1, Math.round(h * k));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  const out = { src: c.toDataURL("image/jpeg", 0.92), w: c.width, h: c.height };
+  c.width = c.height = 1;
+  return out;
 }
 
-async function loadDeckImages(list) {
-  const files = Array.from(list).filter(f => /\.(png|jpe?g)$/i.test(f.name)).sort(naturalOrder);
-  if (!files.length) return;
-  deckBusy(true, "Reading the slides\u2026");
-  const slides = [];
-  let w = 0, h = 0;
-  for (let i = 0; i < files.length && i < PPTX_MAX_SLIDES; i++) {
+async function addDeckSlides(list, replace) {
+  const files = Array.from(list).filter(f => /\.(png|jpe?g)$/i.test(f.name));
+  if (!files.length) {
+    deckNote("Those files are not slide images. Export the slides as PNG or JPG first — " +
+             "in PowerPoint that is File ‣ Export ‣ PNG.", "bad");
+    return;
+  }
+  deckNote("");
+  deckBusy(true, "Reading the slides…");
+
+  const existing = replace ? [] : deckSlides().slice();
+  const added = [];
+  const failed = [];
+  const room = DECK_MAX_SLIDES - existing.length;
+
+  for (let i = 0; i < files.length && added.length < room; i++) {
+    deckBusy(true, "Reading slide " + (existing.length + added.length + 1) + "…");
     try {
-      const url = await readAsDataURL(files[i]);
-      const img = await loadImg(url);
-      if (!w) { w = img.naturalWidth; h = img.naturalHeight; }
-      slides.push(url);
-      deckBusy(true, "Reading slide " + (i + 1) + " of " + files.length + "\u2026");
-    } catch (err) { /* one picture that will not open is one slide missing */ }
+      const raw = await readAsDataURL(files[i]);
+      const img = await loadImg(raw);
+      const small = deckShrink(img);
+      added.push({
+        id: State.nextId++,
+        src: small ? small.src : raw,
+        w: small ? small.w : img.naturalWidth,
+        h: small ? small.h : img.naturalHeight
+      });
+    } catch (err) {
+      /* One picture that will not open is one slide missing, and the deck
+         still runs. Named, so it is obvious which one to re-export. */
+      failed.push(files[i].name);
+    }
   }
   deckBusy(false);
-  if (!slides.length) {
-    deckNote("None of those pictures could be opened.", "bad");
+
+  if (!added.length && !existing.length) {
+    deckNote("None of those pictures could be opened." +
+             (failed.length ? " Tried: " + failed.slice(0, 4).join(", ") : ""), "bad");
     renderDeckBox();
     return;
   }
+
+  const slides = existing.concat(added);
+  const shape = slides[0];
   forgetDeckImages();
-  State.deck = { name: files.length === 1 ? files[0].name.replace(/\.[^.]+$/, "") : "Slides",
-                 w: w || 1600, h: h || 900, slides: slides, charts: 0, failed: 0, skipped: 0 };
+  State.deck = {
+    name: (replace || !State.deck) ? deckNameFor(files) : State.deck.name,
+    w: shape.w || 1600, h: shape.h || 900,
+    slides: slides
+  };
   Deck.at = 0;
   renderDeckBox();
   refreshDock();
   if (running) buildMuseumSafely();
-  deckNote(slides.length + (slides.length === 1 ? " slide" : " slides") + " added.");
-}
 
-async function loadDeckFile(file) {
-  if (!file) return;
-  deckNote("");
-  if (/\.(png|jpe?g)$/i.test(file.name)) { await loadDeckImages([file]); return; }
-  if (!/\.pptx$/i.test(file.name)) {
-    deckNote("That is not a .pptx file. PowerPoint's older .ppt and Keynote's .key cannot be opened " +
-             "here. Save it as .pptx, or export the slides as PNG images and add those instead.", "bad");
-    return;
-  }
-  if (!pptxSupported()) {
-    deckNote("This presentation could not be fully displayed. Please try another file or export it as " +
-             "PDF/images. This browser cannot unpack a .pptx; it needs a current Chrome, Edge, " +
-             "Safari 16.4 or Firefox 113. In PowerPoint, File \u2023 Export \u2023 PNG gives you slide " +
-             "images that will always work here.", "bad");
-    return;
-  }
-  if (file.size > MAX_DECK_MB * 1048576) {
-    deckNote("That deck is " + Math.round(file.size / 1048576) + " MB, and the limit is " + MAX_DECK_MB +
-             " MB. A deck this large can exhaust the browser while it is being unpacked. In PowerPoint, " +
-             "File \u2023 Compress Pictures usually brings it well under.", "bad");
-    return;
-  }
-
-  deckBusy(true, "Opening the deck\u2026");
-  /* The deck the museum already has is left alone until a new one has been
-     read all the way through. A file that turns out to be unreadable must
-     not also take away the one that was working. */
-  try {
-    const deck = await readPptx(file, (done, total) =>
-      deckBusy(true, "Drawing slide " + done + " of " + total + "\u2026"));
-    forgetDeckImages();
-    State.deck = deck;
-    Deck.at = 0;
-    renderDeckBox();
-    refreshDock();
-    /* A deck is normally added before anyone goes in, but if the museum is
-       already standing the wall has to be rebuilt around the new slide size
-       - otherwise the screen keeps the old deck's shape and picture while
-       the counter reads the new one. */
-    if (running) buildMuseumSafely();
-    reportDeckGaps(deck);
-  } catch (err) {
-    if (window.console && console.warn) console.warn("presentation:", err);
-    renderDeckBox();
-    deckNote("This presentation could not be fully displayed. Please try another file or export it as " +
-             "PDF/images. " + deckWhy(err) + " In PowerPoint, File \u2023 Export \u2023 PNG gives you " +
-             "slide images that can be added here instead.", "bad");
-  }
-  deckBusy(false);
-  renderDeckBox();
-}
-
-/* Said plainly, and only where it is actually known. */
-function deckWhy(err) {
-  const m = String((err && err.message) || "");
-  if (m === "unsupported") {
-    return "This browser cannot unpack a .pptx.";
-  }
-  if (m === "not a zip" || m === "empty zip" || m === "no markup") {
-    return "The file is not a readable .pptx - it may be damaged, renamed from something else, " +
-           "or password protected.";
-  }
-  if (m === "no slides" || m === "nothing rendered") {
-    return "No slides could be found inside it. Re-saving it from PowerPoint as .pptx usually helps.";
-  }
-  return "The museum is unaffected; everything else still works.";
-}
-
-/* What came through, and what did not. Nothing here stops the deck being
-   used; it is the difference between a teacher understanding why a slide
-   looks bare and a teacher thinking the whole thing is broken. */
-function reportDeckGaps(deck) {
   const notes = [];
-  if (deck.charts) {
-    notes.push(deck.charts + (deck.charts === 1 ? " chart or diagram was" : " charts or diagrams were") +
-      " left out - PowerPoint stores those as instructions for itself rather than as a picture. " +
-      "Paste one in as an image to keep it.");
-  }
-  if (deck.failed) {
-    notes.push(deck.failed + (deck.failed === 1 ? " slide" : " slides") + " could not be drawn.");
-  }
-  if (deck.skipped) {
-    notes.push("Only the first " + deck.slides.length + " slides were taken.");
-  }
-  deckNote(notes.length ? notes.join(" ") : "", notes.length ? "bad" : null);
+  notes.push(added.length + (added.length === 1 ? " slide added" : " slides added") +
+             " — " + slides.length + " in the deck.");
+  if (failed.length) notes.push(failed.length + " could not be opened: " + failed.slice(0, 4).join(", ") + ".");
+  if (files.length > room) notes.push("The deck is full at " + DECK_MAX_SLIDES + " slides.");
+  deckNote(notes.join(" "), failed.length ? "bad" : null);
 }
 
-onTapReady(() => {
-  $("deck-btn").addEventListener("click", () => $("deck-input").click());
-  $("deck-replace").addEventListener("click", () => $("deck-input").click());
-  $("deck-remove").addEventListener("click", () => {
-    forgetDeckImages();
-    State.deck = null; Deck.at = 0;
-    deckNote("");
-    renderDeckBox(); refreshDock();
-    if (running) buildMuseumSafely();
-  });
-  $("deck-input").addEventListener("change", e => {
-    const chosen = Array.from(e.target.files || []);
-    e.target.value = "";
-    if (!chosen.length) return;
-    const pptx = chosen.find(f => /\.pptx$/i.test(f.name));
-    if (pptx) loadDeckFile(pptx);
-    else loadDeckImages(chosen);
-  });
-});
+function deckNameFor(files) {
+  if (files.length === 1) return files[0].name.replace(/\.[^.]+$/, "");
+  /* "Talk-01.png, Talk-02.png" -> "Talk" */
+  const stem = files[0].name.replace(/\.[^.]+$/, "").replace(/[-_ ]*\d+$/, "").trim();
+  return stem || "Presentation";
+}
 
-/* js/hud.js owns onTap and loads much later, so the wiring above waits for
-   the document rather than running the moment this file is parsed. */
+/* A .pptx dropped anywhere says what to do about it, once. */
+function deckRejectPptx() {
+  deckNote("PowerPoint files cannot be read here. Open the deck in PowerPoint and use " +
+           "File ‣ Export ‣ PNG (or File ‣ Download ‣ PNG in Google Slides), then add " +
+           "the slide images. They keep their layout and fonts exactly as you see them.", "bad");
+}
+
+function clearDeck() {
+  forgetDeckImages();
+  /* the reactions left on its pages go with it */
+  const ids = deckSlides().map(s => (typeof s === "string" ? null : s.id)).filter(v => v !== null);
+  if (ids.length) State.stickers = State.stickers.filter(r => ids.indexOf(r.artId) === -1);
+  State.deck = null;
+  Deck.at = 0;
+  deckNote("");
+  renderDeckBox();
+  refreshDock();
+  if (running) buildMuseumSafely();
+}
+
+/* js/hud.js owns onTap and loads much later, so the wiring waits for the
+   document rather than running the moment this file is parsed. */
 function onTapReady(fn) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
   else fn();
 }
+
+onTapReady(() => {
+  const pick = more => { $("deck-input").dataset.more = more ? "1" : ""; $("deck-input").click(); };
+  $("deck-btn").addEventListener("click", () => pick(false));
+  $("deck-add").addEventListener("click", () => pick(true));
+  $("deck-replace").addEventListener("click", () => pick(false));
+  $("deck-remove").addEventListener("click", clearDeck);
+  $("deck-input").addEventListener("change", e => {
+    const chosen = Array.from(e.target.files || []);
+    const more = e.target.dataset.more === "1";
+    e.target.value = ""; e.target.dataset.more = "";
+    if (!chosen.length) return;
+    if (chosen.some(f => /\.pptx?$/i.test(f.name))) { deckRejectPptx(); return; }
+    addDeckSlides(chosen, !more);
+  });
+});

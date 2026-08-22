@@ -40,7 +40,9 @@ async function joinSession(rawCode) {
     State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
     State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
     Deck.at = 0;
-    State.nextId = State.art.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1;
+    State.nextId = Math.max(
+      State.art.reduce((m, a) => Math.max(m, a.id || 0), 0),
+      deckSlides().reduce((m, sl) => Math.max(m, (sl && sl.id) || 0), 0)) + 1;
     State.session = { code: code, title: data.title || "Student Art Museum", published: data.saved || null };
     State.guest = true;
     applyGuestMode();

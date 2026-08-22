@@ -159,7 +159,9 @@ function frameBody() {
       ? "They have just moved" : "Click to ask them to move");
     else if (near && stamp === "erase" && hit.sticker) hint(hn, "Click to remove this sticker");
     else if (near && hit.deckStep) hint(hn, hit.deckStep > 0 ? "Next slide" : "Previous slide");
-    else if (near && hit.deckOpen) hint(hn, "Slide " + deckLabel() + " \u2014 click to look closer");
+    else if (near && hit.deckOpen) hint(hn, stamp
+      ? "Click to award " + STAMPS[stamp].label.toLowerCase() + " to slide " + deckLabel()
+      : "Slide " + deckLabel() + " \u2014 click to look closer");
     else if (near && hit.control === "next") hint(hn, "Next track");
     else if (near && hit.control === "prev") hint(hn, "Previous track");
     else if (near && hit.control === "mode") hint(hn, PLAYLIST_HINT[hit.controlMode] || "Playback order");

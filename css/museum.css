@@ -395,3 +395,13 @@ body.selfie-on #touch{display:none !important}
   color:rgba(255,240,214,.9);min-width:64px;text-align:center;
 }
 .deck-view .close{position:absolute;top:-6px;right:-6px;z-index:3}
+
+/* reactions on an enlarged slide, in the places they occupy on the wall */
+.deck-stage{position:relative}
+.deck-stickers{position:absolute;pointer-events:none;display:block}
+.deck-sticker{
+  position:absolute;width:clamp(22px,3.4vmin,40px);height:clamp(22px,3.4vmin,40px);
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));
+}
+.deck-sticker svg{width:100%;height:100%;display:block}

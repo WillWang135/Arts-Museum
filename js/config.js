@@ -16,10 +16,10 @@ const APP_VERSION = "V1.2";
    drawings. Past this a file is refused with an explanation rather than
    locking the browser up while it encodes. */
 const MAX_MEDIA_MB = 200;
-/* A presentation is text and pictures, and forty megabytes of that is a very
-   long deck indeed. The old limit was the video one, which let a file through
-   that was large enough to exhaust the tab while it was being unpacked. */
-const MAX_DECK_MB = 40;
+/* The longest edge a slide picture is kept at. Anything bigger is scaled
+   down on the way in: an exported slide is often 3840 across, which is four
+   times what the wall can show and four times the weight in a session file. */
+const MAX_SLIDE_EDGE = 2000;
 
 const SHARING = {
 

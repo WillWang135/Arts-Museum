@@ -71,11 +71,11 @@
       <section class="deckbox" id="deckbox">
         <div class="deck-empty" id="deck-empty">
           <div>
-            <strong>Presentation screen</strong>
-            <span>A PowerPoint, or a folder of slide images, hangs on the back of the feature wall &mdash; one slide at a time.</span>
+            <strong>Presentation slides</strong>
+            <span>Export your slides as PNG or JPG &mdash; in PowerPoint, File &#8227; Export &#8227; PNG &mdash; then choose them all at once. They hang on the back of the feature wall, one at a time, in the order they are added.</span>
           </div>
-          <button class="btn btn-quiet" id="deck-btn" type="button">Add slides</button>
-          <input id="deck-input" type="file" multiple accept=".pptx,.png,.jpg,.jpeg,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg" hidden>
+          <button class="btn btn-quiet" id="deck-btn" type="button">Choose slide images</button>
+          <input id="deck-input" type="file" multiple accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
         </div>
         <div class="deck-have hidden" id="deck-have">
           <span class="deck-thumb"><img id="deck-thumb-img" alt=""></span>
@@ -84,6 +84,7 @@
             <span id="deck-count">0 slides</span>
           </div>
           <div class="deck-actions">
+            <button class="btn btn-quiet" id="deck-add" type="button">Add more</button>
             <button class="btn btn-quiet" id="deck-replace" type="button">Replace</button>
             <button class="btn btn-quiet" id="deck-remove" type="button">Remove</button>
           </div>
@@ -184,8 +185,9 @@
 <!-- audio and video artworks: needed by both the setup screen and the museum -->
 <script src="js/media.js"></script>
 
-<!-- the presentation: a .pptx read in the page and drawn to pictures -->
-<script src="js/pptx.js"></script>
+<!-- the presentation: slide images hung on the back of the feature wall.
+     js/pptx.js is still in the repository but deliberately not loaded; see
+     the note at the top of js/deck.js. -->
 <script src="js/deck.js"></script>
 
 <!-- the wall strip a track gets; the floorplan asks it what actually hangs -->

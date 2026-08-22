@@ -205,13 +205,12 @@ async function ingest(fileList) {
   const skipped = { type: [], big: [], broken: [] };
   const queue = [];
 
-  /* A deck is not an artwork, but dropping one here is the obvious thing to
-     try - so it is taken and sent to the presentation screen instead. */
-  const decks = Array.from(fileList).filter(f => /\.pptx$/i.test(f.name));
-  if (decks.length) { loadDeckFile(decks[0]); }
+  /* A PowerPoint dropped here is the obvious thing to try, so it gets an
+     answer rather than "not a file the museum can show". */
+  if (Array.from(fileList).some(f => /\.pptx?$/i.test(f.name))) deckRejectPptx();
 
   Array.from(fileList).forEach(f => {
-    if (/\.pptx$/i.test(f.name)) return;
+    if (/\.pptx?$/i.test(f.name)) return;
     const kind = fileKind(f);
     if (!kind) { skipped.type.push(f.name); return; }
     if (kind !== "image" && f.size > MAX_MEDIA_MB * 1048576) { skipped.big.push(f.name); return; }
@@ -300,7 +299,12 @@ $("restore-input").addEventListener("change", async e => {
     State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
     Deck.at = 0;
     renderDeckBox();
-    State.nextId = State.art.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1;
+    /* Slides draw their ids from the same counter as artwork, so the counter
+       has to clear both or the next slide added would reuse an id that
+       already has reactions recorded against it. */
+    State.nextId = Math.max(
+      State.art.reduce((m, a) => Math.max(m, a.id || 0), 0),
+      deckSlides().reduce((m, s) => Math.max(m, (s && s.id) || 0), 0)) + 1;
     State.session = { code: data.code || null, title: data.title || "", published: null };
     $("museum-title").value = State.session.title;
     renderLabels();

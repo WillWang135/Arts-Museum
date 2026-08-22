@@ -194,14 +194,6 @@ function buildShell(open) {
         drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
       if (drum) makeBowl(m1.x, m1.z, top, MAT.limestone, 1.0);
       else makeSculpture(m1.x, m1.z, top, k, 1.05);
-      /* Turned to stand ACROSS the room in front of the piece. At ry+90 the
-         rope ran the length of the wing instead, straight through the plinth
-         it was supposed to be protecting - and its far post landed inside
-         the plinth's own collision circle, which is exactly the kind of
-         overlap a visitor gets caught in. */
-      const bar = at(G.APO + L * 0.5 - 1.5, 0, 0);
-      makeBarrier(bar.x, bar.z, ry + Math.PI, 2.3);
-
       /* A long bench a side, turned along the room and set two metres off
          the wall: enough to walk behind, enough to sit and look, and the
          lane down the middle stays open end to end. */
@@ -234,6 +226,11 @@ function buildShell(open) {
      facets; the plinths sit at 9 m, which leaves four and a half metres of
      clear floor in front of every picture. The four doorways lie on the axes,
      and those lanes are left completely open. */
+  /* No ropes out here. A barrier round an ordinary plinth says "this one is
+     precious" about a piece that is not, and four of them said it about the
+     whole room. The only rope in the museum is the one across the feature
+     wall, where there is a reason for it. Empty floor is not a problem to be
+     solved - it is the space people need to stand back and look. */
   [45, 135, 225, 315].forEach((deg, i) => {
     const a = deg * Math.PI / 180, r = 9.0;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
@@ -243,10 +240,6 @@ function buildShell(open) {
     if (i === 1) makeVase(x, z, top, MAT.terracotta, true, 1.0);
     else if (i === 3) makeBowl(x, z, top, MAT.limestone, 1.05);
     else makeSculpture(x, z, top, i + 2, 1.12);
-    if (i % 2 === 0) {
-      const br = 7.7;
-      makeBarrier(Math.cos(a) * br, Math.sin(a) * br, -a + Math.PI / 2, 2.3);
-    }
   });
 
   /* Two quiet pieces behind the feature wall, where the room would

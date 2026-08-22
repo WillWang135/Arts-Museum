@@ -17,6 +17,11 @@ function releaseOverlayMedia() {
 }
 function closeOverlay() {
   releaseOverlayMedia();
+  /* the enlarged slide listens for the window resizing; it must not go on
+     doing that after it has gone */
+  overlayRoot().querySelectorAll(".veil").forEach(v => {
+    if (v.__onResize) window.removeEventListener("resize", v.__onResize);
+  });
   overlayRoot().innerHTML = "";
   needsRender = true;
 }
@@ -292,6 +297,42 @@ function syncDeckViewer() {
   const src = deckCurrent();
   if (src && img.getAttribute("src") !== src) img.src = src;
   v.querySelector(".deck-count").textContent = deckLabel();
+  syncViewerStickers();
+}
+
+/* The same reactions, over the enlarged slide, in the same places they sit
+   on the wall. Read straight off the screen's own slots rather than kept
+   separately, so the two views cannot disagree about what is on a page. */
+function syncViewerStickers() {
+  const v = deckViewer();
+  if (!v) return;
+  const layer = v.querySelector(".deck-stickers");
+  const img = v.querySelector(".deck-stage img");
+  if (!layer || !img) return;
+  layer.innerHTML = "";
+  if (!DeckScreen || !DeckScreen.slots) return;
+
+  /* positioned against the picture, wherever it has ended up inside the
+     stage - a 4:3 slide in a 16:9 box does not fill it */
+  const stage = v.querySelector(".deck-stage").getBoundingClientRect();
+  const box = img.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  layer.style.left = (box.left - stage.left) + "px";
+  layer.style.top = (box.top - stage.top) + "px";
+  layer.style.width = box.width + "px";
+  layer.style.height = box.height + "px";
+
+  DeckScreen.slots.forEach((slot, i) => {
+    if (!slot.taken) return;
+    const n = DeckScreen.slotNorm[i];
+    if (!n) return;
+    const el = document.createElement("span");
+    el.className = "deck-sticker";
+    el.innerHTML = SVG[slot.taken.userData.kind] || "";
+    el.style.left = ((0.5 + n.nx) * 100) + "%";
+    el.style.top = ((0.5 - n.ny) * 100) + "%";
+    layer.appendChild(el);
+  });
 }
 
 function openDeckViewer() {
@@ -304,7 +345,7 @@ function openDeckViewer() {
   veil.innerHTML =
     '<div class="deck-view">' +
       '<button class="chip close" type="button" data-close>Close</button>' +
-      '<div class="deck-stage"><img alt="Presentation slide"></div>' +
+      '<div class="deck-stage"><img alt="Presentation slide"><span class="deck-stickers"></span></div>' +
       '<div class="deck-bar">' +
         '<button class="deck-step" type="button" data-step="-1" aria-label="Previous slide">' +
           '<svg viewBox="0 0 24 24"><path d="M15 5l-8 7 8 7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -321,6 +362,13 @@ function openDeckViewer() {
     e.stopPropagation();
     deckGo(+b.dataset.step);
   }));
+  /* The picture decides where the reactions go, so they are laid out again
+     once it has actually arrived and once the window has settled. */
+  const img = veil.querySelector(".deck-stage img");
+  img.addEventListener("load", syncViewerStickers);
+  veil.__onResize = () => syncViewerStickers();
+  window.addEventListener("resize", veil.__onResize);
+
   overlayRoot().appendChild(veil);
   syncDeckViewer();
 }

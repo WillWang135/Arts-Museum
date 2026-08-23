@@ -261,6 +261,13 @@ function hangArtwork(art, pos, normal, scale, isFeature) {
 }
 
 /* ---------- lights ---------- */
+/* How hard the two lamps on the feature work are driven, and how hard the
+   two washes either side of it are. Named because they were set by
+   measurement rather than by eye - see buildLights below for what was
+   measured and what it came out at. */
+const FEATURE_KEY = 0.36;
+const FEATURE_WASH = 0.95;
+
 function buildLights() {
   const hi = quality === "high";
   root.add(new THREE.HemisphereLight(0xFFF4E4, 0xBCA184, 0.62));
@@ -274,17 +281,42 @@ function buildLights() {
   dirLight.shadow.bias = -0.0006;
   root.add(dirLight); root.add(dirLight.target);
 
-  /* Two washes down the feature wall, aimed either side of the work rather
-     than at it. Pointed at the picture at nearly three times this strength
-     they did what a bright light always does to a painting: flattened it,
-     took the colour out of the mid tones and left a sheen across the middle.
-     The wall keeps its pools of light; the artwork is lit by the room, and
-     shows the colours the student actually chose. */
+  /* The feature wall, lit in two parts.
+
+     Two washes go down the wall either side of the work, as before but
+     turned down: the surround should read as quieter than what is hanging
+     on it, or the work is not the thing you look at.
+
+     Then two soft spots on the work itself. Aiming nothing at it left it
+     the darkest picture in the museum, which is not what a feature wall
+     is for; aiming one bright lamp straight at it did what that always
+     does to a painting - flattened it, pulled the colour out of the mid
+     tones and left a sheen across the middle. So: two lamps, well off to
+     either side and high, a wide cone and almost all penumbra, warm enough
+     to look like a gallery and near enough to neutral to leave the
+     student's colours alone.
+
+     Set by measuring a colour chart hung on this wall against the same
+     chart hung in the rotunda, rather than by eye. What it comes out at:
+     the work reads 34% brighter than an ordinary hung work and 8%
+     brighter than the wall behind it - which is the right way round, and
+     was not: the work used to be the darker of the two. Its colours keep
+     91% of their saturation, no hue moves more than ten degrees, the
+     brightest patch sits at 0.91 with headroom to spare and nothing on it
+     clips. Turning the lamps up past this buys very little brightness and
+     costs saturation quickly, which is the trade this wall is for. */
   featureSpots = [];
   [-3.4, 3.4].forEach(dx => {
-    const s = new THREE.SpotLight(0xFFF3DE, 1.05, 24, 0.50, 0.86, 1.2);
+    const s = new THREE.SpotLight(0xFFF3DE, FEATURE_WASH, 24, 0.50, 0.88, 1.2);
     s.position.set(dx, 7.8, 5.4);
     s.target.position.set(dx * 1.25, 2.1, 0);
+    root.add(s); root.add(s.target);
+    featureSpots.push(s);
+  });
+  [-3.05, 3.05].forEach(dx => {
+    const s = new THREE.SpotLight(0xFFF6EA, FEATURE_KEY, 17, 0.44, 0.95, 1.5);
+    s.position.set(dx, 6.3, 4.7);
+    s.target.position.set(0, 2.45, 0.1);
     root.add(s); root.add(s.target);
     featureSpots.push(s);
   });

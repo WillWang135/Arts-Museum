@@ -391,19 +391,16 @@ function furnishRoom(room, index, ry, at, half, L) {
   else if (k % 3 === 1) { makeFloorStone(a1.x, a1.z, 0.95, MAT.pebble); makeVitrine(a2.x, a2.z, alongRoom, k); }
   else { makeVitrine(a1.x, a1.z, alongRoom, k); makeArchway(a2.x, a2.z, ry + Math.PI, 0.95); }
 
-  /* Two long benches, one either side of the middle, turned along the room
-     and facing the walls they serve. Set at 2.4 m from the centre line they
-     leave 2.4 m of clear floor between bench and wall to stand and look,
-     and 4.8 m down the middle to walk through. */
-  const BENCH_T = 2.4;
-  [1, -1].forEach(sg => {
-    const b = at(mid, sg * BENCH_T, 0);
-    makeBench(b.x, b.z, alongRoom, 3.2);
-  });
+  /* No seating along the walls. Two benches used to sit either side of the
+     middle, turned to face the hanging walls, and on paper they left two
+     and a half metres of floor to stand in. In practice they sat inside
+     the strip a work needs - close enough that you edged round an arm rest
+     to read a label, and close enough that a reaction hung over one. The
+     wall side of a gallery is for standing, walking and looking at things;
+     anything to sit on belongs in the middle with the sculpture, and there
+     is not room for it there without crowding that too.
 
-  /* and the reading stand, in the first room of a section only */
-  if (room.first) {
-    const ls = at(room.s0 + 3.2, -2.6, 0);
-    makeLabelStand(ls.x, ls.z, ry + Math.PI);
-  }
+     The reading stand goes with them, for the same reason: it stood 2.6 m
+     off the centre line at the doorway end, which is exactly where you
+     stop to look at the first picture. */
 }

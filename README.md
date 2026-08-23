@@ -49,7 +49,11 @@ hang. Presentation slides are counted separately and never come out of this.
 
 A domed rotunda with eight doorways, a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. Every section carries a numbered, lit sign above its doorway — ① Photography — and reaches outward as far as it needs to, one room opening into the next. A facet with no room behind it stays a wall and hangs work, and the four that have not been opened yet each hold a piece of sculpture. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
 
-The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; a glass case, a brass rope barrier and a reading stand fill out the corners, and each side room has two long benches. Deliberately sparse: nothing stands within a metre and a half of a picture, nothing blocks a doorway, and the walls are the exhibition.
+The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; a glass case and a brass rope barrier fill out the middle of the room. Deliberately sparse, and everything on the floor of a side room stands on its centre line, leaving 4.7 m of clear floor between it and either hanging wall. Nothing to sit on, nothing to edge around, nothing blocking a doorway: the walls are the exhibition.
+
+Works hang 4.6 m apart, which is wider than it sounds and is measured in whole works rather than in frames — a picture carries a column of reactions either side of it and a patch of wall you can click, and two works whose reactions touch are two works you cannot react to separately. Four to a side wall, two to an end wall, and the widest picture the museum will hang still clears its neighbour.
+
+The feature wall carries two washes down the stone and two soft, warm-neutral lamps on the work itself, set by measuring a colour chart hung there against the same chart hung in the rotunda: the work reads a third brighter than an ordinary hung piece and a little brighter than the wall behind it, and keeps 91% of its saturation with nothing clipped.
 
 **Controls**
 

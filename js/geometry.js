@@ -17,11 +17,13 @@ const G = {
   SEG: 16,          // rotunda wall segments
   WALL_H: 9,        // rotunda wall height
   /* A room sized for what it has to hold: four works down each side wall
-     and two on the end, with room to stand back from any of them. A framed
-     work is up to 2.6 m across, so four along a wall need fifteen metres of
-     it - shrinking the room to fit the pictures is what had them touching. */
-  WING_LEN: 18,     // how far one room reaches
-  WING_HALF: 4.8,   // half width of a room
+     and two on the end, with room to stand back from any of them - and
+     measured in whole works rather than in frames, because a work carries
+     its reactions either side of it (see ART_PITCH). Four at that pitch
+     need fourteen metres of hanging wall and a clear couple of metres at
+     each end so nothing reacts into a corner or a doorway. */
+  WING_LEN: 19,     // how far one room reaches
+  WING_HALF: 5.2,   // half width of a room
   WING_H: 6,
   DOOR_W: 3.4,
   DOOR_H: 4.3,
@@ -105,6 +107,29 @@ const MUSEUM_CAP = 1 + (G.SEG - DIR_COUNT) + MAX_SECTIONS * SECTION_CAP;   // 15
 const SIDE_WALL_CAP = 4;
 const END_WALL_CAP = 2;
 
+/* ---------- how much wall one work actually occupies ----------
+   Not the frame. A work carries a column of reactions either side of it
+   and a patch of wall around it you can click to open it, and it is those
+   that decide how far apart two works have to hang. Measured off what
+   hangArtwork actually builds:
+
+     frame            up to 3.12 m across (a 4.35:1 panorama at full size)
+     reaction column  0.27 m clear of the frame, and 0.43 m of glow
+     click target     the frame plus 0.575 m either side
+
+   So a work reaches ART_REACT past its own frame, the widest one occupies
+   ART_PITCH of wall, and two works closer than that are two works whose
+   reactions sit on top of each other - which is exactly what was
+   happening: four to a side wall put them 2.8 m apart and the reaction
+   clouds overlapped by three quarters of a metre. */
+const ART_FRAME_MAX = 3.12;
+const ART_REACT = 0.72;
+const ART_PITCH = ART_FRAME_MAX + 2 * ART_REACT;    // 4.56 centre to centre
+const ART_EDGE = ART_PITCH / 2;                     // 2.28 from its own centre
+/* Past this a wall stops reading as one hang and starts reading as two, so
+   a nearly empty wall spreads out only so far. */
+const ART_PITCH_MAX = 6.4;
+
 /* Where room number `depth` of a section starts and ends, measured out from
    the middle of the museum. Rooms are joined by a short throat rather than
    sharing a wall, so each still reads as a room you walk into. */
@@ -172,9 +197,10 @@ function rotundaRuns(doors) {
 function roomRuns(room, index) {
   const u = WING_DIR[room.dir], v = { x: -u.z, z: u.x };
   const runs = [];
-  /* Held well off both ends: nothing hangs beside a doorway, and nothing
-     hangs in a corner where you cannot stand back from it. */
-  const s = room.s0 + 2.4, e = room.s1 - 1.6;
+  /* Held off both ends by a work's own reach plus a little, so the last
+     picture on a side wall reacts into clear wall rather than into the
+     doorway behind it or round the corner onto the end wall. */
+  const s = room.s0 + ART_EDGE + 0.35, e = room.s1 - ART_EDGE - 0.15;
   const mid = (s + e) / 2, len = e - s;
   [1, -1].forEach(sign => {
     runs.push({
@@ -186,21 +212,46 @@ function roomRuns(room, index) {
     });
   });
   if (room.last) {
+    /* The end wall is narrower than it looks. Its two works have to keep
+       their reactions off both side walls, so they hang well inside it -
+       an end-wall reaction and a side-wall reaction meeting in the corner
+       is the same collision, just harder to see coming. */
     runs.push({
       cx: u.x * room.s1, cz: u.z * room.s1, nx: -u.x, nz: -u.z,
-      dx: v.x, dz: v.z, len: (G.WING_HALF - 0.8) * 2, cap: END_WALL_CAP,
+      dx: v.x, dz: v.z, len: (G.WING_HALF - ART_EDGE - 0.6) * 2, cap: END_WALL_CAP,
       zone: "room" + index, room: index, dir: room.dir
     });
   }
   return runs;
 }
 
+/* Where the works on one run actually hang.
+
+   They used to be laid out at (j+1)/(k+1) of the run, which sounds even
+   and is: evenly spaced across the middle three fifths of the wall, with
+   the outer two fifths left blank. Four works on a fourteen-metre wall
+   ended up 2.8 m apart with 5.6 m of empty wall either side of them -
+   close enough that their reactions overlapped, while the wall they could
+   have used stood empty.
+
+   They spread across the whole run now, never closer than ART_PITCH and
+   never further than ART_PITCH_MAX, centred on what they use. A wall with
+   two works on it spreads them; a wall with four uses all of itself. */
 function slotsOnRun(r, k, out) {
+  if (k <= 0) return;
+  let pitch = 0;
+  if (k > 1) {
+    pitch = Math.min(ART_PITCH_MAX, Math.max(ART_PITCH, r.len / (k - 1)));
+    /* a run too short for what it was asked to hold: fill it rather than
+       hang work past the end of the wall */
+    if (pitch * (k - 1) > r.len) pitch = r.len / (k - 1);
+  }
+  const span = pitch * (k - 1);
   for (let j = 0; j < k; j++) {
-    const t = (j + 1) / (k + 1) - 0.5;
+    const off = k > 1 ? j * pitch - span / 2 : 0;
     out.push({
-      x: r.cx + r.dx * r.len * t,
-      z: r.cz + r.dz * r.len * t,
+      x: r.cx + r.dx * off,
+      z: r.cz + r.dz * off,
       nx: r.nx, nz: r.nz, zone: r.zone,
       room: r.room === undefined ? -1 : r.room
     });
@@ -368,7 +419,7 @@ function autoSections(ids) {
    the museum ran short of room - and five pictures on a wall built for four
    is five pictures touching. */
 function fitRuns(runs) {
-  return { cap: runs.map(r => r.cap || 1), spacing: 3.0 };
+  return { cap: runs.map(r => r.cap || 1), spacing: ART_PITCH };
 }
 
 /* Shares works out across a set of runs, filling each in turn so the wall

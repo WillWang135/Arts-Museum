@@ -47,33 +47,136 @@ function escapeText(s) {
 
 /* The rooms themselves: name them, reorder them by dragging, remove them.
    The order is the order they take directions out of the rotunda. */
+/* The rooms, always with the Main Exhibition first. That one is the rotunda
+   you arrive in - it cannot be renamed, moved or removed, because it is not
+   a section the host made, it is the middle of the building. */
 function renderRooms() {
-  const strip = $("rooms-strip"), list = $("rooms-list");
-  if (!strip) return;
+  const list = $("rooms-list");
+  if (!list) return;
   const rooms = museumRooms();
-  strip.classList.toggle("empty", !rooms.length);
   list.innerHTML = "";
-  rooms.forEach(r => {
-    const n = artInRoom(r.id).length;
+
+  const main = mainRoomLoad();
+  const mainChip = document.createElement("div");
+  mainChip.className = "room-chip room-main" + (main.over ? " over" : "");
+  mainChip.dataset.id = "";
+  mainChip.innerHTML =
+    '<span class="room-no">1</span>' +
+    '<span class="room-title">' + MAIN_ROOM_NAME + '</span>' +
+    '<span class="room-count">' + main.works + " / " + main.cap +
+      (main.over ? " \u00b7 spills outward" : "") + '</span>';
+  list.appendChild(mainChip);
+
+  rooms.forEach((r, i) => {
+    const load = roomLoad(r.id);
     const chip = document.createElement("div");
-    chip.className = "room-chip";
+    chip.className = "room-chip" + (load.over ? " over" : "");
     chip.dataset.id = r.id;
     chip.draggable = true;
     chip.innerHTML =
       '<span class="grip">\u2261</span>' +
-      '<input class="room-name" maxlength="40" value="' + escapeText(r.name) + '">' +
-      '<span class="room-count">' + n + (n === 1 ? " work" : " works") +
-        (n > ROOM_CAP ? " \u00b7 " + Math.ceil(n / ROOM_CAP) + " rooms" : "") + '</span>' +
+      '<span class="room-no">' + (i + 2) + '</span>' +
+      '<button class="room-title" type="button" title="Rename this room and choose what hangs in it">' +
+        escapeText(r.name) + '</button>' +
+      '<span class="room-count">' + load.works + " / " + SECTION_CAP +
+        (load.physical > 1 ? " \u00b7 " + load.physical + " rooms" : "") + '</span>' +
       '<button class="room-del" type="button" title="Remove this room">\u00d7</button>';
     list.appendChild(chip);
   });
+
+  $("room-add").disabled = rooms.length >= DIR_COUNT;
   const note = $("rooms-note");
   if (note) {
     note.textContent = rooms.length
-      ? "Drag a work onto a room, or use the menu on its card. A room holding more than " +
-        ROOM_CAP + " works opens another beyond it, under the same name."
-      : "Not required — without rooms the museum fills itself, in the order below.";
+      ? "Click a room to rename it and choose what hangs there, or drag a work onto it. " +
+        "A section of more than " + ROOM_CAP + " opens another room beyond it, under the same name."
+      : "Not required — without rooms the museum fills itself: " + mainRoomCapacity() +
+        " in the Main Exhibition, then a room for every " + AUTO_GROUP + " after that.";
   }
+}
+
+/* ---------- one room, opened up ----------
+   Renaming and filling are the same job, so they are the same panel: the
+   name at the top, then every work in the museum with a tick beside the
+   ones that hang here. */
+function openRoomPanel(id) {
+  const room = roomById(id);
+  if (!room) return;
+  const veil = document.createElement("div");
+  veil.className = "veil";
+  veil.innerHTML =
+    '<div class="sheet roomsheet">' +
+      '<button class="chip close" type="button" data-close>Close</button>' +
+      '<span class="eyebrow">Exhibition room</span>' +
+      '<input class="roomsheet-name" maxlength="40" value="' + escapeText(room.name) + '">' +
+      '<p class="roomsheet-note" id="roomsheet-note"></p>' +
+      '<div class="roomsheet-list"></div>' +
+    '</div>';
+
+  const listEl = veil.querySelector(".roomsheet-list");
+  const note = veil.querySelector("#roomsheet-note");
+  const paintNote = () => {
+    const load = roomLoad(id);
+    note.textContent = load.works + " of " + SECTION_CAP + " works" +
+      (load.physical > 1 ? " \u2014 " + load.physical + " connected rooms, one name" : "") +
+      (load.over ? " \u2014 anything past " + SECTION_CAP + " stays in the Main Exhibition" : "");
+    note.classList.toggle("bad", load.over);
+  };
+  const paint = () => {
+    paintNote();
+    listEl.innerHTML = "";
+    State.art.forEach((a, i) => {
+      const here = (a.room === undefined ? null : a.room) === id;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "roompick" + (here ? " on" : "");
+      row.dataset.id = a.id;
+      row.innerHTML =
+        '<span class="roompick-box">' + (here ? "\u2713" : "") + '</span>' +
+        '<span class="roompick-thumb"><img alt=""></span>' +
+        '<span class="roompick-name"><b></b><i></i></span>';
+      row.querySelector("img").src = a.src;
+      row.querySelector("b").textContent = a.name || "Untitled";
+      row.querySelector("i").textContent = here ? "In this room"
+        : (a.room ? "In " + (roomName(a.room) || "another room") : "Main Exhibition");
+      listEl.appendChild(row);
+    });
+  };
+  paint();
+
+  /* The row is updated where it is rather than the list being drawn again.
+     Repainting detached whatever had just been clicked, so a second tick in
+     the same second landed on a row that was no longer in the document -
+     and the scroll position went back to the top every time. */
+  listEl.addEventListener("click", e => {
+    const row = e.target.closest(".roompick");
+    if (!row) return;
+    const a = State.art.find(x => x.id === +row.dataset.id);
+    if (!a) return;
+    const here = (a.room === undefined ? null : a.room) === id;
+    a.room = here ? null : id;
+    const now = !here;
+    row.classList.toggle("on", now);
+    row.querySelector(".roompick-box").textContent = now ? "\u2713" : "";
+    row.querySelector("i").textContent = now ? "In this room"
+      : (a.room ? "In " + (roomName(a.room) || "another room") : "Main Exhibition");
+    paintNote();
+    renderRooms();
+    paintPlan();
+  });
+  const nameEl = veil.querySelector(".roomsheet-name");
+  nameEl.addEventListener("input", () => {
+    renameRoom(id, nameEl.value);
+    renderRooms();
+    paintPlan();
+  });
+
+  wireVeil(veil);
+  veil.addEventListener("click", e => { if (e.target === veil) renderLabels(); });
+  veil.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => renderLabels()));
+  overlayRoot().appendChild(veil);
+  nameEl.focus();
+  nameEl.select();
 }
 
 function renderLabels() {
@@ -206,26 +309,14 @@ labelsEl.addEventListener("click", e => {
 
 /* ---------- the rooms strip ---------- */
 $("room-add").addEventListener("click", () => {
-  if (museumRooms().length >= DIR_COUNT) {
-    alert("The museum has " + DIR_COUNT + " ways out of the rotunda, so it can hold " +
-          DIR_COUNT + " named sections. A section that outgrows one room simply gets " +
-          "another beyond it, so there is no need for more.");
-    return;
-  }
-  addRoom();
+  const room = addRoom();
   renderLabels();
-});
-$("rooms-list").addEventListener("input", e => {
-  const chip = e.target.closest(".room-chip"); if (!chip) return;
-  if (!e.target.classList.contains("room-name")) return;
-  renameRoom(+chip.dataset.id, e.target.value);
-  paintPlan();
+  if (room) openRoomPanel(room.id);
 });
 $("rooms-list").addEventListener("click", e => {
-  const chip = e.target.closest(".room-chip"); if (!chip) return;
-  if (!e.target.closest(".room-del")) return;
-  removeRoom(+chip.dataset.id);
-  renderLabels();
+  const chip = e.target.closest(".room-chip"); if (!chip || !chip.dataset.id) return;
+  if (e.target.closest(".room-del")) { removeRoom(+chip.dataset.id); renderLabels(); return; }
+  if (e.target.closest(".room-title")) openRoomPanel(+chip.dataset.id);
 });
 
 /* Dragging a work onto a room puts it in that room; dragging a room
@@ -233,8 +324,7 @@ $("rooms-list").addEventListener("click", e => {
    rotunda to a different direction. */
 let dragRoomId = null;
 $("rooms-list").addEventListener("dragstart", e => {
-  const chip = e.target.closest(".room-chip"); if (!chip) return;
-  if (e.target.classList.contains("room-name")) { e.preventDefault(); return; }
+  const chip = e.target.closest(".room-chip"); if (!chip || !chip.dataset.id) return;
   dragRoomId = +chip.dataset.id;
   chip.classList.add("dragging");
   e.dataTransfer.effectAllowed = "move";
@@ -253,7 +343,8 @@ $("rooms-list").addEventListener("dragover", e => {
 $("rooms-list").addEventListener("drop", e => {
   const chip = e.target.closest(".room-chip"); if (!chip) return;
   e.preventDefault();
-  const target = +chip.dataset.id;
+  /* the Main Exhibition has no id: dropping onto it means "unfile this" */
+  const target = chip.dataset.id ? +chip.dataset.id : null;
   if (dragId !== null) {
     const a = State.art.find(x => x.id === dragId);
     if (a) a.room = target;

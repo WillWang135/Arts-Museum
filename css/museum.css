@@ -405,3 +405,33 @@ body.selfie-on #touch{display:none !important}
   filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));
 }
 .deck-sticker svg{width:100%;height:100%;display:block}
+
+/* ---------- one room, opened up ---------- */
+.sheet.roomsheet{max-width:min(620px,94vw);position:relative}
+.roomsheet-name{
+  display:block;width:100%;margin:6px 0 0;padding:6px 0;
+  font-family:var(--display);font-size:26px;font-weight:800;letter-spacing:-.02em;
+  color:var(--ink);border:0;border-bottom:2px solid var(--hairline);background:transparent;
+}
+.roomsheet-name:focus{outline:0;border-bottom-color:var(--viridian)}
+.roomsheet-note{margin:10px 0 14px;color:var(--slate);font-size:13px}
+.roomsheet-note.bad{color:#8C3A2E}
+.roomsheet-list{max-height:52vh;overflow:auto;border-top:1px solid var(--hairline)}
+.roompick{
+  display:grid;grid-template-columns:26px 54px 1fr;gap:12px;align-items:center;
+  width:100%;padding:9px 4px;background:transparent;border:0;border-bottom:1px solid var(--hairline);
+  font:inherit;text-align:left;cursor:pointer;
+}
+.roompick:hover{background:#F6F7F4}
+.roompick.on{background:#EEF5F3}
+.roompick-box{
+  width:22px;height:22px;border:1.5px solid var(--hairline);border-radius:2px;
+  display:grid;place-items:center;color:#fff;font-size:14px;
+}
+.roompick.on .roompick-box{background:var(--viridian);border-color:var(--viridian)}
+.roompick-thumb{width:54px;height:40px;background:#EFEFEA;overflow:hidden;display:block}
+.roompick-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.roompick-name{min-width:0}
+.roompick-name b{display:block;font-family:var(--display);font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roompick-name i{display:block;font-size:12px;color:var(--slate);margin-top:2px}

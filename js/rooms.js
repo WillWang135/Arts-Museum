@@ -29,17 +29,31 @@ function roomName(id) {
   const r = roomById(id);
   return r ? r.name : null;
 }
+/* Rooms are added in sequence and named for where they are, not for what a
+   list of examples guessed they might hold. A host who wants Photography
+   types Photography; a host who does not gets Room 3, which is at least
+   true. */
 function addRoom(name) {
   const rooms = museumRooms();
-  const room = { id: State.nextId++, name: (name || "").trim() || defaultRoomName(rooms.length) };
+  if (rooms.length >= DIR_COUNT) return null;
+  const room = { id: State.nextId++, name: (name || "").trim() || nextRoomName() };
   rooms.push(room);
   return room;
 }
-function defaultRoomName(i) {
-  const names = ["Main Exhibition", "Photography", "Digital Art", "Abstract Art",
-                 "Year 10 Projects", "Sculpture", "Printmaking", "Studio Work"];
-  return names[i % names.length];
+function nextRoomName(alsoTaken) {
+  const taken = museumRooms().map(r => r.name).concat(alsoTaken || []);
+  for (let i = 1; i <= DIR_COUNT + 4; i++) {
+    const n = "Room " + i;
+    if (taken.indexOf(n) === -1) return n;
+  }
+  return "Room " + (museumRooms().length + 1);
 }
+
+/* The central room is not one of them. It is the rotunda you arrive in, it
+   is always called the Main Exhibition, and its name is not the host's to
+   change - every other name in the building is. */
+const MAIN_ROOM_NAME = "Main Exhibition";
+function mainRoomCapacity() { return ROT_CAP + 1; }        // and the feature wall
 function removeRoom(id) {
   State.rooms = museumRooms().filter(r => r.id !== id);
   /* its works come back to the unassigned pile rather than disappearing */
@@ -93,24 +107,27 @@ function exhibitionSections(wallArt) {
 
   const sections = [];
   const loose = artInRoom(null, list);
-  /* Anything the host has not filed is the central room. If they have filed
-     everything, the rotunda simply hangs the first room's overflow-free
-     share, which keeps the middle of the museum from being empty. */
-  if (loose.length) {
-    sections.push({ name: null, central: true, ids: loose.slice(0, ROT_CAP).map(a => a.id) });
-    const spill = loose.slice(ROT_CAP);
-    for (let i = 0; i < spill.length; i += ROOM_CAP) {
-      sections.push({ name: null, ids: spill.slice(i, i + ROOM_CAP).map(a => a.id) });
-    }
-  } else {
-    sections.push({ name: null, central: true, ids: [] });
-  }
+  sections.push({ name: MAIN_ROOM_NAME, central: true, ids: loose.slice(0, ROT_CAP).map(a => a.id) });
 
+  /* The host's own rooms take their directions first - they are the
+     deliberate ones, and they should be the first doors a visitor sees. */
   museumRooms().forEach(room => {
-    const ids = artInRoom(room.id, list).map(a => a.id);
+    const ids = artInRoom(room.id, list).map(a => a.id).slice(0, SECTION_CAP);
     if (!ids.length) return;
     sections.push({ name: room.name, ids: ids });
   });
+
+  /* Then whatever the middle could not hold. Named in the same sequence as
+     the automatic rooms, carrying on from the host's - "Overflow 2" on a
+     brass sign over a doorway is not a room anybody meant to build. */
+  const spill = loose.slice(ROT_CAP);
+  const extra = Math.ceil(spill.length / AUTO_GROUP);
+  for (let i = 0; i < extra; i++) {
+    const from = Math.round(i * spill.length / extra);
+    const to = Math.round((i + 1) * spill.length / extra);
+    sections.push({ name: nextRoomName(sections.map(s => s.name)),
+                    ids: spill.slice(from, to).map(a => a.id) });
+  }
   return sections;
 }
 
@@ -123,4 +140,17 @@ function exhibitionLayout(wallArt) {
    the hero plan. */
 function physicalRoomCount() {
   return exhibitionLayout().rooms.length;
+}
+
+
+/* How full a section is, and how many physical rooms that comes to. Shown
+   on the home screen so the host can see a section outgrow one room. */
+function roomLoad(id) {
+  const n = artInRoom(id).length;
+  return { works: n, cap: SECTION_CAP, physical: roomsNeeded(Math.min(n, SECTION_CAP)),
+           over: n > SECTION_CAP };
+}
+function mainRoomLoad() {
+  const n = artInRoom(null).length;
+  return { works: n, cap: mainRoomCapacity(), over: n > ROT_CAP };
 }

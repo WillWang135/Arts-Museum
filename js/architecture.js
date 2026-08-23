@@ -15,7 +15,10 @@ function buildShell(layout) {
 
   /* rotunda walls with gold panel linework */
   for (let i = 0; i < G.SEG; i++) {
-    const isDoor = DOOR_SEGS.indexOf(i) !== -1;
+    /* Only a facet that actually leads somewhere is an opening. The rest
+       are wall, and hang work - which is what keeps a small museum's
+       rotunda full rather than punched through with eight empty doorways. */
+    const isDoor = !!layout.doors[i];
     const rad = G.APO + G.WALL_T / 2;
     const lineR = G.APO - 0.035;
 
@@ -91,11 +94,6 @@ function buildShell(layout) {
     buildSideRoom(room, index, layout);
   });
 
-  /* A doorway that leads nowhere gets a shallow niche behind it, so the
-     rotunda never has a blank plate where an opening should be. */
-  open.forEach((used, k) => {
-    if (!used) buildNiche(k);
-  });
 
   /* ---- furnishing the rotunda ----
      A room to walk through and stand in, so it carries pieces and nothing to
@@ -260,7 +258,7 @@ function buildSideRoom(room, index, layout) {
   }
 
   /* the name of the section, over the doorway you come in by */
-  if (room.name && room.depth === 0) buildRoomSign(room, k);
+  if (room.name && room.first) buildRoomSign(room, k);
 
   furnishRoom(room, index, ry, at, half, L);
 }
@@ -313,24 +311,26 @@ function buildNiche(k) {
    the middle of the rotunda, well clear of the opening and of anything
    hanging inside. */
 function buildRoomSign(room, k) {
-  const u = WING_DIR[k], v = { x: -u.z, z: u.x };
+  const u = WING_DIR[k];
   const ry = Math.atan2(u.x, u.z);
-  const plate = roomSignTexture(room.name);
-  const h = 0.62, w = h * plate.aspect;
-  const y = G.DOOR_H + 0.62;
+  const plate = roomSignTexture(room.index, room.name);
+  const h = 0.74, w = h * plate.aspect;
+  /* Between the top of the opening and the cornice: clear of the doorway,
+     clear of the ceiling, and nothing hangs on a doorway facet anyway. */
+  const y = G.DOOR_H + 0.16 + h / 2;
 
-  const px = u.x * (G.APO - 0.36), pz = u.z * (G.APO - 0.36);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.26, h + 0.26, 0.07), MAT.darkStone);
+  const px = u.x * (G.APO - 0.30), pz = u.z * (G.APO - 0.30);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.22, h + 0.22, 0.08), MAT.darkStone);
   back.position.set(px, y, pz); back.rotation.y = ry;
   back.castShadow = true; root.add(back);
 
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.14, h + 0.14, 0.02), MAT.brass);
-  edge.position.set(px - u.x * 0.045, y, pz - u.z * 0.045); edge.rotation.y = ry;
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.02), MAT.brass);
+  edge.position.set(px - u.x * 0.05, y, pz - u.z * 0.05); edge.rotation.y = ry;
   root.add(edge);
 
   const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({ map: plate.tex, transparent: true, toneMapped: false }));
-  face.position.set(px - u.x * 0.06, y, pz - u.z * 0.06);
+  face.position.set(px - u.x * 0.065, y, pz - u.z * 0.065);
   face.rotation.y = ry + Math.PI;
   face.renderOrder = 3;
   root.add(face);

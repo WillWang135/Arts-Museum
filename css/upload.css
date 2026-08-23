@@ -171,7 +171,6 @@ body.is-guest #clear-btn{display:none !important}
 .rooms-head strong{display:block;font-family:var(--display);font-size:15px;letter-spacing:-.01em}
 .rooms-head span{display:block;color:var(--slate);font-size:13px;margin-top:3px}
 .rooms-list{display:flex;flex-wrap:wrap;gap:10px;padding:0 18px 16px}
-.rooms.empty .rooms-list{display:none}
 .room-chip{
   display:flex;align-items:center;gap:9px;
   padding:8px 10px;border:1px solid var(--rule);border-radius:2px;background:#FBFBF8;
@@ -180,12 +179,23 @@ body.is-guest #clear-btn{display:none !important}
 .room-chip.dragging{opacity:.45}
 .room-chip.over{border-color:var(--viridian);background:#EEF5F3}
 .room-chip .grip{color:var(--faint);font-size:15px;line-height:1;cursor:grab}
-.room-name{
-  border:0;background:transparent;font:inherit;font-family:var(--display);
-  font-size:14px;font-weight:700;letter-spacing:-.01em;width:9.5em;padding:2px 0;
+.room-no{
+  width:20px;height:20px;flex:none;border-radius:50%;
+  border:1.5px solid var(--viridian);color:var(--viridian);
+  font-family:var(--display);font-size:11px;font-weight:700;
+  display:grid;place-items:center;
+}
+.room-title{
+  border:0;background:transparent;padding:2px 0;cursor:pointer;
+  font:inherit;font-family:var(--display);font-size:14px;font-weight:700;
+  letter-spacing:-.01em;color:var(--ink);text-align:left;
   border-bottom:1px solid transparent;
 }
-.room-name:focus{outline:0;border-bottom-color:var(--viridian)}
+button.room-title:hover{border-bottom-color:var(--viridian)}
+.room-main{background:#F3F6F4;border-color:#CFE0D9;cursor:default}
+.room-main .room-title{cursor:default}
+.room-chip.over{border-color:var(--viridian);background:#EEF5F3}
+.room-chip.over .room-count{color:var(--rose)}
 .room-count{color:var(--slate);font-size:12px;white-space:nowrap}
 .room-del{
   border:0;background:transparent;color:var(--faint);cursor:pointer;

@@ -206,35 +206,54 @@ function plaqueTexture(art, num, maxAspect) {
   return { tex: t, aspect: W / PLAQUE_H };
 }
 
-/* The name of a section, on a plate over its doorway. Read from the middle
-   of the rotunda, so the type is large, tracked out and warm against a dark
-   ground - the same register as the wall labels, at the scale of a sign. */
-function roomSignTexture(name) {
+/* The name of a section, over its doorway, lit like the title ring above
+   the feature wall: warm lamps on a dark ground, and a number in a circle
+   before the name so one room can be told from another at a glance.
+
+   The glow is kept deliberately faint. A bloom strong enough to notice is a
+   bloom that washes through the letters, and a sign nobody can read is not
+   a sign - so the light sits behind the type rather than on it. */
+function roomSignTexture(number, name) {
+  const H = 190, PAD = 34, BADGE = 62;
   const measure = cvs(8, 8).getContext("2d");
-  const FONT = "700 74px Helvetica, Arial, sans-serif";
+  const FONT = "700 76px Helvetica, Arial, sans-serif";
   measure.font = FONT;
-  const text = (name || "").toUpperCase();
-  const W = Math.max(420, Math.min(1600, Math.round(measure.measureText(text).width + 150)));
-  const H = 190;
+  const text = String(name || "").toUpperCase();
+  const textW = measure.measureText(text).width;
+  const W = Math.max(430, Math.min(1700, Math.round(PAD * 2 + BADGE + 30 + textW)));
   const c = cvs(W, H), x = c.getContext("2d");
 
+  /* the case */
   const g = x.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, "#232A2E"); g.addColorStop(1, "#161B1F");
+  g.addColorStop(0, "#20262B"); g.addColorStop(0.5, "#161B20"); g.addColorStop(1, "#10151A");
   x.fillStyle = g; x.fillRect(0, 0, W, H);
 
-  x.strokeStyle = "rgba(244,201,124,.55)"; x.lineWidth = 3;
+  /* the lamp grid the title ring is made of, very faint, so the plate reads
+     as an illuminated panel rather than a printed card */
+  x.fillStyle = "rgba(255,206,130,.045)";
+  for (let gy = 16; gy < H - 12; gy += 9) {
+    for (let gx = 16; gx < W - 12; gx += 9) x.fillRect(gx, gy, 3, 3);
+  }
+
+  x.strokeStyle = "rgba(244,201,124,.5)"; x.lineWidth = 3;
   x.strokeRect(9, 9, W - 18, H - 18);
 
-  /* a hairline either side of the name, the way a gallery sets a room title */
-  x.fillStyle = "rgba(244,201,124,.34)";
-  x.fillRect(34, H / 2 - 1, 26, 2);
-  x.fillRect(W - 60, H / 2 - 1, 26, 2);
-
-  x.font = FONT;
-  x.fillStyle = "#F6E7C8";
+  /* the number, in its circle */
+  const bx = PAD + BADGE / 2, by = H / 2;
+  x.beginPath(); x.arc(bx, by, BADGE / 2, 0, 6.3);
+  x.fillStyle = "rgba(244,201,124,.16)"; x.fill();
+  x.lineWidth = 3.4; x.strokeStyle = "rgba(246,214,150,.92)"; x.stroke();
+  x.font = "700 40px Helvetica, Arial, sans-serif";
+  x.fillStyle = "#F8EBD0";
   x.textAlign = "center"; x.textBaseline = "middle";
-  x.shadowColor = "rgba(255,214,150,.35)"; x.shadowBlur = 12;
-  x.fillText(text, W / 2, H / 2 + 3);
+  x.fillText(String(number), bx, by + 2);
+
+  /* and the name */
+  x.font = FONT;
+  x.textAlign = "left";
+  x.shadowColor = "rgba(255,196,110,.30)"; x.shadowBlur = 9;
+  x.fillStyle = "#F9EFDA";
+  x.fillText(text, PAD + BADGE + 30, by + 3);
   x.shadowBlur = 0;
 
   const tex = new THREE.CanvasTexture(c);

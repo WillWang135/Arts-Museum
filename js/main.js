@@ -18,6 +18,7 @@ function enterMuseum() {
       if (isTouchOnly() && quality === "high") { quality = "low"; applyQuality(); }
       else if (!buildMuseumSafely()) throw new Error("build");
       resetPlayer();
+      $("view-btn").innerHTML = "View: <b>First person</b>";   /* resetPlayer chose it */
       $("loading").classList.add("hidden");
       $("map-btn").classList.add("on");
       running = true;

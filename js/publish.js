@@ -9,7 +9,8 @@ function sessionPayload(code) {
     saved: new Date().toISOString(),
     art: State.art,
     stickers: State.stickers,
-    deck: State.deck
+    deck: State.deck,
+    rooms: State.rooms
   };
 }
 function payloadSize(code) {

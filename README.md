@@ -32,8 +32,9 @@ That's the whole thing. To share a museum with a class you'll need it on the web
 |---|---|
 | **1. Collect** | Drag in **PNG, JPG, MP3, MP4 or MOV** — one at a time or the whole class at once. Images are resized to 1200 px; a track gets generated cover art, a video gets a poster frame lifted from it. |
 | **2. Label** | Each work gets an artwork name, the student's name, and the story behind it. Star one piece to hang it on the feature wall. |
-| **3. Walk** | The floorplan builds itself. Twelve works fill the central rotunda; after that, side galleries open in balanced pairs. |
-| **4. Share** | **Share museum** issues a code like `ABC-234`. Students type it in and they're standing in the same rooms. |
+| **3. Curate** | Optional. Drag the cards into the order you want, name some rooms — Photography, Year 10 Projects — and put works in them. One work is always on the feature wall; the first one uploaded takes it unless you choose another. |
+| **4. Walk** | The floorplan builds itself. Eight works fill the central rotunda, then sections reach outward through eight doorways, ten works to a room. A section with more than ten opens another room beyond it, under the same name. |
+| **5. Share** | **Share museum** issues a code like `ABC-234`. Students type it in and they're standing in the same rooms. |
 
 Codes skip `I`, `L`, `O`, `0` and `1` — nothing a student can misread aloud.
 
@@ -41,7 +42,7 @@ Codes skip `I`, `L`, `O`, `0` and `1` — nothing a student can misread aloud.
 
 ## Inside the museum
 
-A domed rotunda with a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
+A domed rotunda with eight doorways, a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. A named section carries its name on a brass-edged plate above its doorway, and reaches outward as far as it needs to. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
 
 The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; a glass case, a brass rope barrier and a reading stand fill out the corners, and each side room has two long benches. Deliberately sparse: nothing stands within a metre and a half of a picture, nothing blocks a doorway, and the walls are the exhibition.
 
@@ -115,7 +116,7 @@ js/
   media                         audio and video artworks, playback, cover art
   deck                          the slide images on the back of the feature wall
   music-panel                   the wall strip a track gets instead of a frame
-  geometry, floorplan           room shape, shared by the 2D plan and 3D build
+  geometry, rooms, floorplan    room shape and curation, shared by the plan and the build
   upload, join, publish         the setup screen
   runtime                       variables the 3D files share
   textures … overlays           surfaces, architecture, people, cards

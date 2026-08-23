@@ -5,7 +5,9 @@
 @media (max-width:860px){
   .masthead{grid-template-columns:1fr;gap:24px;align-items:stretch}
   .joinbox{width:auto;order:-1}
-  .wall-label{grid-template-columns:88px 1fr;gap:14px}
+  .wall-label{grid-template-columns:16px 88px 1fr;gap:10px}
+  .rooms-head{flex-wrap:wrap}
+  .room-name{width:7em}
   .label-actions{grid-column:1/-1;grid-auto-flow:column;justify-content:start;align-items:center}
   /* The veil's padding is part of the width budget: 96vw plus 24px of
      padding each side pushed the card off the right of a phone screen. */

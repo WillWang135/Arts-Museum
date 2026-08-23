@@ -16,22 +16,78 @@ function paintPlan() {
   drawFloorplan(ctx, w, h, { dark: false });
 
   const n = State.art.length;
-  const hung = hangingCount();
-  const open = computeLayout(Math.max(hung, 1)).open.filter(Boolean).length;
-  const rooms = open === 0 ? "Rotunda only" : "Rotunda + " + open + (open === 1 ? " wing" : " wings");
+  const layout = exhibitionLayout(hangingPlan().wall);
+  const count = layout.rooms.length;
+  const rooms = count === 0 ? "Rotunda only"
+    : "Rotunda + " + count + (count === 1 ? " room" : " rooms");
   const named = (State.session.title || "").trim();
-  $("plan-status").textContent = n === 0 ? "Empty floorplan" : (named || rooms);
+  $("plan-status").textContent = n === 0 ? "Empty floorplan" : (named ? named + " — " + rooms : rooms);
 }
 window.addEventListener("resize", paintPlan);
 
+/* Which room a work is in, chosen from the rooms that exist. Left alone it
+   says Main room, which is the rotunda - and a museum where nobody names a
+   room is a museum where every work says Main room, which is exactly the
+   automatic behaviour that was there before. */
+function roomPicker(a) {
+  const rooms = museumRooms();
+  if (!rooms.length) return "";
+  const here = a.room === undefined ? null : a.room;
+  let html = '<select class="room-pick" title="Which room this hangs in">' +
+             '<option value="">Main room</option>';
+  rooms.forEach(r => {
+    html += '<option value="' + r.id + '"' + (r.id === here ? " selected" : "") + '>' +
+            escapeText(r.name) + '</option>';
+  });
+  return html + '</select>';
+}
+function escapeText(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+/* The rooms themselves: name them, reorder them by dragging, remove them.
+   The order is the order they take directions out of the rotunda. */
+function renderRooms() {
+  const strip = $("rooms-strip"), list = $("rooms-list");
+  if (!strip) return;
+  const rooms = museumRooms();
+  strip.classList.toggle("empty", !rooms.length);
+  list.innerHTML = "";
+  rooms.forEach(r => {
+    const n = artInRoom(r.id).length;
+    const chip = document.createElement("div");
+    chip.className = "room-chip";
+    chip.dataset.id = r.id;
+    chip.draggable = true;
+    chip.innerHTML =
+      '<span class="grip">\u2261</span>' +
+      '<input class="room-name" maxlength="40" value="' + escapeText(r.name) + '">' +
+      '<span class="room-count">' + n + (n === 1 ? " work" : " works") +
+        (n > ROOM_CAP ? " \u00b7 " + Math.ceil(n / ROOM_CAP) + " rooms" : "") + '</span>' +
+      '<button class="room-del" type="button" title="Remove this room">\u00d7</button>';
+    list.appendChild(chip);
+  });
+  const note = $("rooms-note");
+  if (note) {
+    note.textContent = rooms.length
+      ? "Drag a work onto a room, or use the menu on its card. A room holding more than " +
+        ROOM_CAP + " works opens another beyond it, under the same name."
+      : "Not required — without rooms the museum fills itself, in the order below.";
+  }
+}
+
 function renderLabels() {
   normaliseMediaArt(State.art);
+  ensureFeature();
+  renderRooms();
   labelsEl.innerHTML = "";
   State.art.forEach((a, i) => {
     const row = document.createElement("div");
     row.className = "wall-label";
     row.dataset.id = a.id;
+    row.draggable = true;
     row.innerHTML =
+      '<span class="grip" title="Drag to reorder">\u2261</span>' +
       '<div class="thumb-wrap"><span class="accession">' + pad3(i + 1) + '</span><img alt="">' +
         (isPlayable(a) ? '<span class="kindtag">' + (artKind(a) === "audio" ? "Audio" : "Video") + '</span>' : '') +
       '</div>' +
@@ -41,6 +97,7 @@ function renderLabels() {
         '<textarea class="f-desc" data-f="desc" placeholder="What is this piece about? Materials, ideas, the story behind it." maxlength="900"></textarea>' +
       '</div>' +
       '<div class="label-actions">' +
+        roomPicker(a) +
         '<button class="feature-toggle" type="button">' + SVG.star + 'Feature</button>' +
         (isPlayable(a)
           ? '<button class="cover-btn" type="button">' +
@@ -66,7 +123,63 @@ function renderLabels() {
 labelsEl.addEventListener("input", e => {
   const row = e.target.closest(".wall-label"); if (!row) return;
   const a = State.art.find(x => x.id === +row.dataset.id); if (!a) return;
+  if (e.target.classList.contains("room-pick")) return;
   a[e.target.dataset.f] = e.target.value;
+});
+labelsEl.addEventListener("change", e => {
+  if (!e.target.classList.contains("room-pick")) return;
+  const row = e.target.closest(".wall-label"); if (!row) return;
+  const a = State.art.find(x => x.id === +row.dataset.id); if (!a) return;
+  a.room = e.target.value ? +e.target.value : null;
+  renderLabels();
+});
+
+/* ---------- putting the exhibition in order ----------
+   The order of State.art is the order of the show: the rotunda takes the
+   first few, then each room hangs its own in this order. Dragging a card
+   moves the work, and nothing else has to be told. */
+let dragId = null;
+labelsEl.addEventListener("dragstart", e => {
+  const row = e.target.closest(".wall-label");
+  if (!row) return;
+  dragId = +row.dataset.id;
+  row.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("text/plain", String(dragId)); } catch (err) {}
+});
+labelsEl.addEventListener("dragend", () => {
+  dragId = null;
+  labelsEl.querySelectorAll(".dragging,.drop-before,.drop-after")
+    .forEach(n => n.classList.remove("dragging", "drop-before", "drop-after"));
+});
+labelsEl.addEventListener("dragover", e => {
+  if (dragId === null) return;
+  const row = e.target.closest(".wall-label");
+  if (!row || +row.dataset.id === dragId) return;
+  e.preventDefault();
+  const b = row.getBoundingClientRect();
+  const after = e.clientY > b.top + b.height / 2;
+  labelsEl.querySelectorAll(".drop-before,.drop-after")
+    .forEach(n => n.classList.remove("drop-before", "drop-after"));
+  row.classList.add(after ? "drop-after" : "drop-before");
+});
+labelsEl.addEventListener("drop", e => {
+  if (dragId === null) return;
+  const row = e.target.closest(".wall-label");
+  if (!row) return;
+  e.preventDefault();
+  const overId = +row.dataset.id;
+  if (overId === dragId) return;
+  const b = row.getBoundingClientRect();
+  const after = e.clientY > b.top + b.height / 2;
+  const from = State.art.findIndex(a => a.id === dragId);
+  if (from < 0) return;
+  const moved = State.art.splice(from, 1)[0];
+  let to = State.art.findIndex(a => a.id === overId);
+  if (to < 0) to = State.art.length - 1;
+  State.art.splice(after ? to + 1 : to, 0, moved);
+  dragId = null;
+  renderLabels();
 });
 labelsEl.addEventListener("click", e => {
   const row = e.target.closest(".wall-label"); if (!row) return;
@@ -77,10 +190,9 @@ labelsEl.addEventListener("click", e => {
     State.stickers = State.stickers.filter(s => s.artId !== id);
     renderLabels();
   } else if (e.target.closest(".feature-toggle")) {
-    const a = State.art.find(x => x.id === id);
-    const was = a.featured;
-    State.art.forEach(x => x.featured = false);
-    a.featured = !was;
+    /* One work is always on the feature wall, so this chooses rather than
+       toggles - turning the only one off would leave the wall bare. */
+    setFeature(id);
     renderLabels();
   } else if (e.target.closest(".cover-btn")) {
     coverTargetId = id;
@@ -90,6 +202,70 @@ labelsEl.addEventListener("click", e => {
     if (a) clearArtCover(a);
     renderLabels();
   }
+});
+
+/* ---------- the rooms strip ---------- */
+$("room-add").addEventListener("click", () => {
+  if (museumRooms().length >= DIR_COUNT) {
+    alert("The museum has " + DIR_COUNT + " ways out of the rotunda, so it can hold " +
+          DIR_COUNT + " named sections. A section that outgrows one room simply gets " +
+          "another beyond it, so there is no need for more.");
+    return;
+  }
+  addRoom();
+  renderLabels();
+});
+$("rooms-list").addEventListener("input", e => {
+  const chip = e.target.closest(".room-chip"); if (!chip) return;
+  if (!e.target.classList.contains("room-name")) return;
+  renameRoom(+chip.dataset.id, e.target.value);
+  paintPlan();
+});
+$("rooms-list").addEventListener("click", e => {
+  const chip = e.target.closest(".room-chip"); if (!chip) return;
+  if (!e.target.closest(".room-del")) return;
+  removeRoom(+chip.dataset.id);
+  renderLabels();
+});
+
+/* Dragging a work onto a room puts it in that room; dragging a room
+   reorders the sections, which is the same as moving one round the
+   rotunda to a different direction. */
+let dragRoomId = null;
+$("rooms-list").addEventListener("dragstart", e => {
+  const chip = e.target.closest(".room-chip"); if (!chip) return;
+  if (e.target.classList.contains("room-name")) { e.preventDefault(); return; }
+  dragRoomId = +chip.dataset.id;
+  chip.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+});
+$("rooms-list").addEventListener("dragend", () => {
+  dragRoomId = null;
+  $("rooms-list").querySelectorAll(".dragging,.over").forEach(n => n.classList.remove("dragging", "over"));
+});
+$("rooms-list").addEventListener("dragover", e => {
+  const chip = e.target.closest(".room-chip");
+  if (!chip || (dragId === null && dragRoomId === null)) return;
+  e.preventDefault();
+  $("rooms-list").querySelectorAll(".over").forEach(n => n.classList.remove("over"));
+  if (dragId !== null) chip.classList.add("over");
+});
+$("rooms-list").addEventListener("drop", e => {
+  const chip = e.target.closest(".room-chip"); if (!chip) return;
+  e.preventDefault();
+  const target = +chip.dataset.id;
+  if (dragId !== null) {
+    const a = State.art.find(x => x.id === dragId);
+    if (a) a.room = target;
+    dragId = null;
+  } else if (dragRoomId !== null && dragRoomId !== target) {
+    const rooms = museumRooms();
+    const from = rooms.findIndex(r => r.id === dragRoomId);
+    const to = rooms.findIndex(r => r.id === target);
+    if (from >= 0 && to >= 0) rooms.splice(to, 0, rooms.splice(from, 1)[0]);
+    dragRoomId = null;
+  }
+  renderLabels();
 });
 
 /* ---------- optional cover art for a clip ---------- */
@@ -268,6 +444,7 @@ $("clear-btn").addEventListener("click", () => {
   if (!confirm("Remove every artwork and sticker from this museum?")) return;
   disposeAllMedia();
   State.art = []; State.stickers = []; State.deck = null; Deck.at = 0;
+  State.rooms = [];
   renderLabels(); renderDeckBox();
 });
 
@@ -278,7 +455,7 @@ function saveMuseum() {
     title: State.session.title || "Student Art Museum",
     code: State.session.code || null,
     saved: new Date().toISOString(),
-    art: State.art, stickers: State.stickers, deck: State.deck
+    art: State.art, stickers: State.stickers, deck: State.deck, rooms: State.rooms
   })], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -297,6 +474,7 @@ $("restore-input").addEventListener("change", async e => {
     State.art = data.art;
     State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
     State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
+    State.rooms = Array.isArray(data.rooms) ? data.rooms : [];
     Deck.at = 0;
     renderDeckBox();
     /* Slides draw their ids from the same counter as artwork, so the counter
@@ -304,7 +482,8 @@ $("restore-input").addEventListener("change", async e => {
        already has reactions recorded against it. */
     State.nextId = Math.max(
       State.art.reduce((m, a) => Math.max(m, a.id || 0), 0),
-      deckSlides().reduce((m, s) => Math.max(m, (s && s.id) || 0), 0)) + 1;
+      deckSlides().reduce((m, s) => Math.max(m, (s && s.id) || 0), 0),
+      museumRooms().reduce((m, r) => Math.max(m, (r && r.id) || 0), 0)) + 1;
     State.session = { code: data.code || null, title: data.title || "", published: null };
     $("museum-title").value = State.session.title;
     renderLabels();

@@ -16,6 +16,9 @@ const State = {
   /* {name, w, h, slides:[dataURL]} - the deck on the back of the feature
      wall. Null until somebody adds one; the wall is plain without it. */
   deck: null,
+  /* [{id, name}] - the exhibition sections the host has named, in the order
+     they take directions out of the rotunda. Empty means automatic. */
+  rooms: [],
   session: { code: null, title: "", published: null }
 };
 

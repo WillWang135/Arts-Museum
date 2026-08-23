@@ -171,6 +171,17 @@ function slideClear(p) {
 }
 
 function stepPlayer(dt) {
+  /* A frame of no length moves nothing, and asking it to is what broke the
+     museum on the way back in. performance.now() is deliberately coarse, so
+     two readings taken in the same turn are routinely identical and
+     clock.getDelta() hands back exactly zero - which enterMuseum then does,
+     calling getDelta() to discard the gap and running a frame immediately
+     after. Dividing the step by that zero produced NaN, NaN went into the
+     player's velocity, and from there into the head height and the camera:
+     first person filled with the visitor's own face, and nothing would move
+     again until the page was reloaded. */
+  if (!(dt > 0)) return;
+
   let ix = 0, iz = 0;
   if (keys["w"] || keys["arrowup"]) iz -= 1;      // forward
   if (keys["s"] || keys["arrowdown"]) iz += 1;    // back
@@ -281,6 +292,7 @@ function stepPlayer(dt) {
        asked for. Along a wall the two are the same, and into one the wallward
        part is simply gone - so nothing builds up and nothing bounces. */
     let gotX = (p.x - fromX) / sub, gotZ = (p.z - fromZ) / sub;
+    if (!isFinite(gotX) || !isFinite(gotZ)) { gotX = 0; gotZ = 0; }
     const gotSpeed = Math.hypot(gotX, gotZ), wantSpeed = Math.hypot(mx, mz) / sub;
     if (gotSpeed > wantSpeed && gotSpeed > 1e-6) {
       /* An easing nudge moves you; it does not set you going. Carrying it
@@ -300,7 +312,22 @@ function stepPlayer(dt) {
 }
 
 /* ---------- camera ---------- */
+/* Nothing that is not a number is allowed as far as the camera. One NaN in
+   a position is not a glitch for one frame - it stays, because every value
+   after it is computed from the last, and the only way out is a reload. */
+function steadyPlayer() {
+  if (!isFinite(Player.x) || !isFinite(Player.z)) { Player.x = 0; Player.z = 9.6; }
+  if (!isFinite(Player.yaw)) Player.yaw = 0;
+  if (!isFinite(Player.pitch)) Player.pitch = -0.02;
+  if (!isFinite(Player.vx) || !isFinite(Player.vz)) { Player.vx = 0; Player.vz = 0; }
+  if (!isFinite(Player.bob)) Player.bob = 0;
+  if (!isFinite(Player.moving)) Player.moving = 0;
+  if (!isFinite(fov)) fov = 62;
+  if (!isFinite(fovTarget)) fovTarget = 62;
+}
+
 function updateCamera(dt) {
+  steadyPlayer();
   const head = 1.66 + (Player.third ? 0 : Math.sin(Player.bob) * 0.035 * Player.moving);
   fov += (fovTarget - fov) * Math.min(1, dt * 8);
   if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
@@ -330,7 +357,16 @@ function updateCamera(dt) {
 }
 
 /* ---------- starting position ---------- */
+/* Every value the visit carries, back to what it was the first time. The
+   walk cycle and the view mode were being left behind, so a second entry
+   started mid-stride and in whichever camera the last visit ended in. */
 function resetPlayer() {
   Player.x = 0; Player.z = 9.6; Player.yaw = 0; Player.pitch = -0.02;
-  Player.vx = Player.vz = 0; fov = fovTarget = 62;
+  Player.vx = Player.vz = 0;
+  Player.bob = 0; Player.moving = 0;
+  Player.third = false;
+  fov = fovTarget = 62;
+  for (const k in keys) keys[k] = false;
+  touchState.mx = 0; touchState.mz = 0; touchState.look = null;
+  if (avatar) { avatar.visible = false; avatar.position.set(Player.x, 0, Player.z); }
 }

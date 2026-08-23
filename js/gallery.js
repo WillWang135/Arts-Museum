@@ -568,15 +568,25 @@ function buildMuseum() {
      the building. */
   const music = hangingPlan();
   const featured = music.featured;
-  const layout = computeLayout(Math.max(music.wall.length, 1));
+  const layout = exhibitionLayout(music.wall);
 
-  buildShell(layout.open);
+  buildShell(layout);
   buildFeatureWall(featured);
   buildLights();
 
-  music.wall.forEach((art, i) => {
-    const s = layout.slots[i % layout.slots.length];
-    hangArtwork(art, new THREE.Vector3(s.x, G.ART_Y, s.z), new THREE.Vector3(s.nx, 0, s.nz).normalize(), 1, false);
+  /* Every work goes where the plan put it - which, when the host has
+     arranged rooms, is the room they chose. Anything the plan could not
+     place (a wall that ran out) falls back to the next free position, so a
+     work is never quietly dropped. */
+  const spare = layout.slots.filter(s => s.artId === undefined);
+  let sp = 0;
+  music.wall.forEach(art => {
+    let s = layout.slots[layout.byArt[art.id]];
+    if (!s) s = spare[sp++];
+    if (!s) s = layout.slots[0];
+    if (!s) return;
+    hangArtwork(art, new THREE.Vector3(s.x, G.ART_Y, s.z),
+      new THREE.Vector3(s.nx, 0, s.nz).normalize(), 1, false);
   });
 
   /* Every track gets its strip: above its host, or above itself when it

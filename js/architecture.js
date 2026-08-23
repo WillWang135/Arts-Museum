@@ -1,10 +1,14 @@
 /* ============================================================
    ARCHITECTURE  --  the rotunda, its wings and alcoves.
    ============================================================ */
-function buildShell(open) {
+const Y_LOW = 0.34, Y_RAIL = 3.2;        // gold panel reveals, everywhere
+
+function buildShell(layout) {
+  const open = layout.open;
   const step = Math.PI * 2 / G.SEG;
   const hi = quality === "high";
-  const Y_LOW = 0.34, Y_RAIL = 3.2;      // gold panel reveals
+  /* Y_LOW and Y_RAIL are module-level: the rooms are built by their own
+     function now, and they line their reveals up with the rotunda's. */
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(170, 170), MAT.floor);
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; root.add(floor);
@@ -78,146 +82,19 @@ function buildShell(open) {
   sunPool(-6.6, 5.4, 7.4, 9.2, 0.4);
   sunPool(6.9, 4.6, 6.6, 8.4, 2.6);
 
-  /* wings and alcoves */
-  WING_DIR.forEach((u, k) => {
-    const v = { x: -u.z, z: u.x };
-    const isWing = open[k];
-    const L = isWing ? G.WING_LEN : G.ALCOVE_D;
-    const half = isWing ? G.WING_HALF : G.ALCOVE_HALF;
-    const H = isWing ? G.WING_H : 4.6;
-    const ry = Math.atan2(u.x, u.z);   // local +Z aligned with u
-    const at = (s, t, y) => ({ x: u.x * s + v.x * t, y: y, z: u.z * s + v.z * t });
+  /* ---- the side rooms ----
+     Each direction carries a chain of rooms reaching outward. A room with
+     another beyond it has a doorway in its far wall rather than a wall, so
+     a section of thirty works reads as one long gallery rather than three
+     separate cupboards. */
+  layout.rooms.forEach((room, index) => {
+    buildSideRoom(room, index, layout);
+  });
 
-    /* Front wall either side of the doorway. It reaches 0.10 m into the
-       opening and 0.30 m into the side wall, so neither end lines up flush
-       with another surface - flush ends are what caused the flicker here. */
-    const revealT = G.DOOR_W / 2 - 0.10;
-    const fill = (half + 0.30) - revealT;
-    if (fill > 0.06) {
-      [1, -1].forEach(sg => {
-        const p = at(G.APO + 0.30, sg * (revealT + fill / 2), H / 2);
-        box(fill, H + 0.12, 0.7, MAT.wall, p.x, H / 2, p.z, ry);   // over-runs floor and ceiling
-        /* deeper than the upright trim so the two never share a plane */
-        const sp = at(G.APO - 0.04, sg * (revealT - 0.05 + fill / 2), 0.1);
-        box(fill, 0.2, 0.20, MAT.base, sp.x, 0.1, sp.z, ry);
-      });
-    }
-
-    /* side walls — inner face sits exactly on the hang line at |t| = half */
-    [1, -1].forEach(sg => {
-      const p = at(G.APO + L / 2, sg * (half + G.WALL_T / 2), H / 2);
-      const w = new THREE.Mesh(new THREE.BoxGeometry(G.WALL_T, H, L), MAT.wall);
-      w.position.set(p.x, p.y, p.z); w.rotation.y = ry;
-      w.castShadow = true; w.receiveShadow = true; root.add(w);
-
-      const bp = at(G.APO + L / 2, sg * (half - 0.08), 0.1);
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, L), MAT.base);
-      b.position.set(bp.x, bp.y, bp.z); b.rotation.y = ry; root.add(b);
-
-      [Y_LOW, Y_RAIL, H - 0.62].forEach((yy, qi) => {
-        const lp = at(G.APO + L / 2, sg * (half - 0.03), yy);
-        const ln = new THREE.Mesh(new THREE.BoxGeometry(0.045, qi === 2 ? 0.016 : 0.022, L - 0.4), MAT.brass);
-        ln.position.set(lp.x, yy, lp.z); ln.rotation.y = ry; root.add(ln);
-      });
-      const cv = at(G.APO + L / 2, sg * (half - 0.22), H - 0.55);
-      const cove = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, L - 1.2), MAT.cove);
-      cove.position.set(cv.x, H - 0.55, cv.z); cove.rotation.y = ry; root.add(cove);
-    });
-
-    /* end wall */
-    const e = at(G.APO + L + G.WALL_T / 2, 0, H / 2);
-    box(half * 2 + G.WALL_T, H, G.WALL_T, MAT.wall, e.x, e.y, e.z, ry);
-    const eb = at(G.APO + L - 0.08, 0, 0.1);
-    box(half * 2, 0.2, 0.16, MAT.base, eb.x, eb.y, eb.z, ry);
-    [Y_LOW, Y_RAIL].forEach(yy => {
-      const lp = at(G.APO + L - 0.03, 0, yy);
-      plain(half * 2 - 0.3, 0.022, 0.045, MAT.brass, lp.x, yy, lp.z, ry);
-    });
-
-    /* ceiling */
-    const cp = at(G.APO + L / 2, 0, H);
-    const cm = new THREE.Mesh(new THREE.PlaneGeometry(half * 2 + 0.8, L + 0.8), MAT.ceiling);
-    cm.position.set(cp.x, H, cp.z);
-    cm.rotation.order = "YXZ"; cm.rotation.set(Math.PI / 2, ry, 0);
-    root.add(cm);
-
-    /* glazed rooflight running down the middle of the room */
-    const rw = isWing ? 2.5 : 1.5, rl = Math.max(1.6, L - (isWing ? 5.0 : 1.4));
-    const rt = skyTexture();
-    rt.repeat.set(1, Math.max(1, rl / rw / 1.9));
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(rw, rl), new THREE.MeshBasicMaterial({ map: rt }));
-    glass.position.set(cp.x, H - 0.04, cp.z);
-    glass.rotation.order = "YXZ"; glass.rotation.set(Math.PI / 2, ry, 0);
-    root.add(glass);
-    Anim.skies.push({ tex: rt, ux: 0.0011, uy: 0.0042 });
-
-    /* brass rooflight frame and mullions */
-    [[rw + 0.14, 0.05, 0, rl / 2], [rw + 0.14, 0.05, 0, -rl / 2],
-     [0.05, rl + 0.14, rw / 2, 0], [0.05, rl + 0.14, -rw / 2, 0]].forEach(f => {
-      const p = at(G.APO + L / 2 + f[3], f[2], H - 0.06);
-      plain(f[0], 0.07, f[1], MAT.brass, p.x, H - 0.06, p.z, ry);
-    });
-    const bars = Math.max(1, Math.round(rl / 2.6));
-    for (let b = 1; b < bars; b++) {
-      const off = -rl / 2 + rl * b / bars;
-      const p = at(G.APO + L / 2 + off, 0, H - 0.06);
-      plain(rw, 0.055, 0.045, MAT.brass, p.x, H - 0.06, p.z, ry);
-    }
-
-    const sp = at(G.APO + L / 2, 0, 0);
-    sunPool(sp.x, sp.z, isWing ? 4.2 : 2.6, isWing ? rl * 0.8 : 2.6, k * 1.7);
-
-    Nav.zones.push({
-      ux: u.x, uz: u.z, vx: v.x, vz: v.z,
-      s0: G.APO + 1.05, s1: G.APO + L - 0.45, half: half - 0.45,
-      t0: G.APO - 1.6, t1: G.APO + 1.3, doorHalf: G.DOOR_W / 2 - 0.45
-    });
-
-    /* ---- furnishing a side room ----
-       Fewer things, further apart. Four rules decide every position: nothing
-       within two and a half metres of a hang line, so no object is ever
-       standing in front of a drawing; nothing in the lane between the door
-       and the far wall; every gap a visitor might walk through at least a
-       metre and a half wide, which is comfortably more than they are; and
-       everything placed by index, so a rebuild puts the same room back.
-
-       Seating lives here rather than in the rotunda, and it is one long
-       bench a side - not a scatter of chairs. */
-    if (isWing) {
-      const CLEAR = 2.5;                       /* off the side walls */
-      const t1 = half - CLEAR;                 /* 3.5 m: the furthest anything sits */
-
-      /* one piece down the middle, with a rope in front of it */
-      const m1 = at(G.APO + L * 0.5, 0, 0);
-      const drum = k % 2 === 1;
-      const top = makePlinth(m1.x, m1.z, drum ? 0.94 : 1.02, drum ? 0.34 : 0.42,
-        drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
-      if (drum) makeBowl(m1.x, m1.z, top, MAT.limestone, 1.0);
-      else makeSculpture(m1.x, m1.z, top, k, 1.05);
-      /* A long bench a side, turned along the room and set two metres off
-         the wall: enough to walk behind, enough to sit and look, and the
-         lane down the middle stays open end to end. */
-      /* ry-90 turns a prop's length along the room; ry+180 turns it across.
-         A group's local +X points at (cos, -sin) of its rotation, which is
-         easy to get a quarter turn wrong - and a bench across the room
-         instead of along it stands right where people walk. */
-      const BENCH_T = half - 2.6;              /* 3.4 m out, 2 m off the wall */
-      const alongRoom = ry - Math.PI / 2;
-      const bA = at(G.APO + 3.4, BENCH_T, 0), bB = at(G.APO + 8.4, -BENCH_T, 0);
-      makeBench(bA.x, bA.z, alongRoom, 3.0);
-      makeBench(bB.x, bB.z, alongRoom, 3.0);
-
-      /* one case to look into, at the far end of the same side as the first
-         bench - past it, so neither ever has to be squeezed around */
-      const vt = at(G.APO + L - 2.4, BENCH_T, 0);
-      makeVitrine(vt.x, vt.z, alongRoom, k);
-    } else {
-      /* An alcove is three metres deep. One vessel, and nothing else. */
-      const m1 = at(G.APO + L * 0.52, 0, 0);
-      const top = makePlinth(m1.x, m1.z, 1.0, 0.33, MAT.limestone, "drum");
-      if (k % 2 === 0) makeVase(m1.x, m1.z, top, MAT.terracotta, true, 0.92);
-      else makeVase(m1.x, m1.z, top, MAT.olive, false, 0.92);
-    }
+  /* A doorway that leads nowhere gets a shallow niche behind it, so the
+     rotunda never has a blank plate where an opening should be. */
+  open.forEach((used, k) => {
+    if (!used) buildNiche(k);
   });
 
   /* ---- furnishing the rotunda ----
@@ -249,4 +126,248 @@ function buildShell(open) {
   makeArchway(3.6, -10.4, 0.4, 1.0);
   makeVitrine(-3.6, -10.4, 0.3, 2);
   makeLabelStand(-5.4, -9.2, 0.6);
+}
+
+
+/* ============================================================
+   ONE SIDE ROOM
+   ============================================================ */
+function buildSideRoom(room, index, layout) {
+  const k = room.dir;
+  const u = WING_DIR[k], v = { x: -u.z, z: u.x };
+  const half = room.half, H = G.WING_H;
+  const L = room.s1 - room.s0;
+  const ry = Math.atan2(u.x, u.z);              // local +Z aligned with u
+  const at = (s, t, y) => ({ x: u.x * s + v.x * t, y: y, z: u.z * s + v.z * t });
+
+  /* Front wall either side of the doorway. It reaches 0.10 m into the
+     opening and 0.30 m into the side wall, so neither end lines up flush
+     with another surface - flush ends are what caused the flicker here. */
+  const revealT = G.DOOR_W / 2 - 0.10;
+  const fill = (half + 0.30) - revealT;
+  if (fill > 0.06) {
+    [1, -1].forEach(sg => {
+      const p = at(room.s0 + 0.30, sg * (revealT + fill / 2), H / 2);
+      box(fill, H + 0.12, 0.7, MAT.wall, p.x, H / 2, p.z, ry);
+      const sp = at(room.s0 - 0.04, sg * (revealT - 0.05 + fill / 2), 0.1);
+      box(fill, 0.2, 0.20, MAT.base, sp.x, 0.1, sp.z, ry);
+    });
+    /* the lintel over the opening */
+    const lp = at(room.s0 + 0.30, 0, G.DOOR_H + (H - G.DOOR_H) / 2);
+    box(G.DOOR_W + 0.2, H - G.DOOR_H, 0.7, MAT.wall, lp.x, G.DOOR_H + (H - G.DOOR_H) / 2, lp.z, ry);
+  }
+
+  /* side walls - inner face sits exactly on the hang line at |t| = half */
+  [1, -1].forEach(sg => {
+    const p = at(room.s0 + L / 2, sg * (half + G.WALL_T / 2), H / 2);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(G.WALL_T, H, L), MAT.wall);
+    w.position.set(p.x, p.y, p.z); w.rotation.y = ry;
+    w.castShadow = true; w.receiveShadow = true; root.add(w);
+
+    const bp = at(room.s0 + L / 2, sg * (half - 0.08), 0.1);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, L), MAT.base);
+    b.position.set(bp.x, bp.y, bp.z); b.rotation.y = ry; root.add(b);
+
+    [Y_LOW, Y_RAIL, H - 0.62].forEach((yy, qi) => {
+      const lp = at(room.s0 + L / 2, sg * (half - 0.03), yy);
+      const ln = new THREE.Mesh(new THREE.BoxGeometry(0.045, qi === 2 ? 0.016 : 0.022, L - 0.4), MAT.brass);
+      ln.position.set(lp.x, yy, lp.z); ln.rotation.y = ry; root.add(ln);
+    });
+    const cv = at(room.s0 + L / 2, sg * (half - 0.22), H - 0.55);
+    const cove = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, L - 1.2), MAT.cove);
+    cove.position.set(cv.x, H - 0.55, cv.z); cove.rotation.y = ry; root.add(cove);
+  });
+
+  /* the far wall: solid when the section ends here, an opening when it
+     carries on into the next room */
+  if (room.last) {
+    const e = at(room.s1 + G.WALL_T / 2, 0, H / 2);
+    box(half * 2 + G.WALL_T, H, G.WALL_T, MAT.wall, e.x, e.y, e.z, ry);
+    const eb = at(room.s1 - 0.08, 0, 0.1);
+    box(half * 2, 0.2, 0.16, MAT.base, eb.x, eb.y, eb.z, ry);
+    [Y_LOW, Y_RAIL].forEach(yy => {
+      const lp = at(room.s1 - 0.03, 0, yy);
+      plain(half * 2 - 0.3, 0.022, 0.045, MAT.brass, lp.x, yy, lp.z, ry);
+    });
+  } else {
+    const revT = G.DOOR_W / 2;
+    const wfill = half - revT;
+    [1, -1].forEach(sg => {
+      if (wfill <= 0.06) return;
+      const p = at(room.s1 + G.WALL_T / 2, sg * (revT + wfill / 2), H / 2);
+      box(wfill + 0.3, H, G.WALL_T, MAT.wall, p.x, H / 2, p.z, ry);
+    });
+    const lp = at(room.s1 + G.WALL_T / 2, 0, G.DOOR_H + (H - G.DOOR_H) / 2);
+    box(G.DOOR_W + 0.2, H - G.DOOR_H, G.WALL_T, MAT.wall, lp.x, G.DOOR_H + (H - G.DOOR_H) / 2, lp.z, ry);
+    /* the throat between one room and the next */
+    [1, -1].forEach(sg => {
+      const p = at(room.s1 + G.WALL_T + ROOM_GAP / 2, sg * (G.DOOR_W / 2 + G.WALL_T / 2), H / 2);
+      box(G.WALL_T, H, ROOM_GAP, MAT.wall, p.x, H / 2, p.z, ry);
+    });
+    const cp2 = at(room.s1 + G.WALL_T + ROOM_GAP / 2, 0, H);
+    const cm2 = new THREE.Mesh(new THREE.PlaneGeometry(G.DOOR_W + G.WALL_T * 2, ROOM_GAP + 0.4), MAT.ceiling);
+    cm2.position.set(cp2.x, H, cp2.z);
+    cm2.rotation.order = "YXZ"; cm2.rotation.set(Math.PI / 2, ry, 0);
+    root.add(cm2);
+  }
+
+  /* ceiling */
+  const cp = at(room.s0 + L / 2, 0, H);
+  const cm = new THREE.Mesh(new THREE.PlaneGeometry(half * 2 + 0.8, L + 0.8), MAT.ceiling);
+  cm.position.set(cp.x, H, cp.z);
+  cm.rotation.order = "YXZ"; cm.rotation.set(Math.PI / 2, ry, 0);
+  root.add(cm);
+
+  /* glazed rooflight running down the middle of the room */
+  const rw = 2.2, rl = Math.max(1.6, L - 4.0);
+  const rt = skyTexture();
+  rt.repeat.set(1, Math.max(1, rl / rw / 1.9));
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(rw, rl), new THREE.MeshBasicMaterial({ map: rt }));
+  glass.position.set(cp.x, H - 0.04, cp.z);
+  glass.rotation.order = "YXZ"; glass.rotation.set(Math.PI / 2, ry, 0);
+  root.add(glass);
+  Anim.skies.push({ tex: rt, ux: 0.0011, uy: 0.0042 });
+
+  [[rw + 0.14, 0.05, 0, rl / 2], [rw + 0.14, 0.05, 0, -rl / 2],
+   [0.05, rl + 0.14, rw / 2, 0], [0.05, rl + 0.14, -rw / 2, 0]].forEach(f => {
+    const p = at(room.s0 + L / 2 + f[3], f[2], H - 0.06);
+    plain(f[0], 0.07, f[1], MAT.brass, p.x, H - 0.06, p.z, ry);
+  });
+  const bars = Math.max(1, Math.round(rl / 2.6));
+  for (let b = 1; b < bars; b++) {
+    const off = -rl / 2 + rl * b / bars;
+    const p = at(room.s0 + L / 2 + off, 0, H - 0.06);
+    plain(rw, 0.055, 0.045, MAT.brass, p.x, H - 0.06, p.z, ry);
+  }
+
+  const sp = at(room.s0 + L / 2, 0, 0);
+  sunPool(sp.x, sp.z, 3.4, rl * 0.8, k * 1.7 + room.depth);
+
+  /* Walkable: the room, its doorway, and - when one follows - the throat
+     through to it, so a section really is one continuous walk. */
+  Nav.zones.push({
+    ux: u.x, uz: u.z, vx: v.x, vz: v.z,
+    s0: room.s0 + 1.05, s1: room.s1 - 0.45, half: half - 0.45,
+    t0: room.s0 - 1.6, t1: room.s0 + 1.3, doorHalf: G.DOOR_W / 2 - 0.45
+  });
+  if (!room.last) {
+    Nav.zones.push({
+      ux: u.x, uz: u.z, vx: v.x, vz: v.z,
+      s0: room.s1 - 0.8, s1: room.s1 + G.WALL_T + ROOM_GAP + 0.8,
+      half: G.DOOR_W / 2 - 0.45,
+      t0: room.s1, t1: room.s1, doorHalf: 0
+    });
+  }
+
+  /* the name of the section, over the doorway you come in by */
+  if (room.name && room.depth === 0) buildRoomSign(room, k);
+
+  furnishRoom(room, index, ry, at, half, L);
+}
+
+/* A doorway with nothing behind it becomes a shallow recess with a piece in
+   it, rather than a blank panel where an opening should be. */
+function buildNiche(k) {
+  const u = WING_DIR[k], v = { x: -u.z, z: u.x };
+  const half = G.ALCOVE_HALF, L = G.ALCOVE_D, H = 4.6;
+  const ry = Math.atan2(u.x, u.z);
+  const at = (s, t, y) => ({ x: u.x * s + v.x * t, y: y, z: u.z * s + v.z * t });
+
+  const revealT = G.DOOR_W / 2 - 0.10;
+  const fill = (half + 0.30) - revealT;
+  if (fill > 0.06) {
+    [1, -1].forEach(sg => {
+      const p = at(G.APO + 0.30, sg * (revealT + fill / 2), H / 2);
+      box(fill, H + 0.12, 0.7, MAT.wall, p.x, H / 2, p.z, ry);
+      const sp = at(G.APO - 0.04, sg * (revealT - 0.05 + fill / 2), 0.1);
+      box(fill, 0.2, 0.20, MAT.base, sp.x, 0.1, sp.z, ry);
+    });
+  }
+  [1, -1].forEach(sg => {
+    const p = at(G.APO + L / 2, sg * (half + G.WALL_T / 2), H / 2);
+    box(G.WALL_T, H, L, MAT.wall, p.x, H / 2, p.z, ry);
+  });
+  const e = at(G.APO + L + G.WALL_T / 2, 0, H / 2);
+  box(half * 2 + G.WALL_T, H, G.WALL_T, MAT.wall, e.x, e.y, e.z, ry);
+  const cp = at(G.APO + L / 2, 0, H);
+  const cm = new THREE.Mesh(new THREE.PlaneGeometry(half * 2 + 0.8, L + 0.8), MAT.ceiling);
+  cm.position.set(cp.x, H, cp.z);
+  cm.rotation.order = "YXZ"; cm.rotation.set(Math.PI / 2, ry, 0);
+  root.add(cm);
+  const eb = at(G.APO + L - 0.08, 0, 0.1);
+  box(half * 2, 0.2, 0.16, MAT.base, eb.x, eb.y, eb.z, ry);
+
+  Nav.zones.push({
+    ux: u.x, uz: u.z, vx: v.x, vz: v.z,
+    s0: G.APO + 1.05, s1: G.APO + L - 0.45, half: half - 0.45,
+    t0: G.APO - 1.6, t1: G.APO + 1.3, doorHalf: G.DOOR_W / 2 - 0.45
+  });
+
+  const m1 = at(G.APO + L * 0.52, 0, 0);
+  const top = makePlinth(m1.x, m1.z, 1.0, 0.33, MAT.limestone, "drum");
+  if (k % 2 === 0) makeVase(m1.x, m1.z, top, MAT.terracotta, true, 0.92);
+  else makeVase(m1.x, m1.z, top, MAT.olive, false, 0.92);
+}
+
+/* The section's name, on a brass-edged plate above its doorway - read from
+   the middle of the rotunda, well clear of the opening and of anything
+   hanging inside. */
+function buildRoomSign(room, k) {
+  const u = WING_DIR[k], v = { x: -u.z, z: u.x };
+  const ry = Math.atan2(u.x, u.z);
+  const plate = roomSignTexture(room.name);
+  const h = 0.62, w = h * plate.aspect;
+  const y = G.DOOR_H + 0.62;
+
+  const px = u.x * (G.APO - 0.36), pz = u.z * (G.APO - 0.36);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.26, h + 0.26, 0.07), MAT.darkStone);
+  back.position.set(px, y, pz); back.rotation.y = ry;
+  back.castShadow = true; root.add(back);
+
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.14, h + 0.14, 0.02), MAT.brass);
+  edge.position.set(px - u.x * 0.045, y, pz - u.z * 0.045); edge.rotation.y = ry;
+  root.add(edge);
+
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ map: plate.tex, transparent: true, toneMapped: false }));
+  face.position.set(px - u.x * 0.06, y, pz - u.z * 0.06);
+  face.rotation.y = ry + Math.PI;
+  face.renderOrder = 3;
+  root.add(face);
+}
+
+
+/* Fewer things, further apart. Four rules decide every position: nothing
+   within two and a half metres of a hang line, so no object is ever standing
+   in front of a drawing; nothing in the lane between the door and the far
+   wall; every gap a visitor might walk through comfortably wider than they
+   are; and everything placed by index, so a rebuild puts the same room back.
+
+   Seating lives out here rather than in the rotunda, and it is one long
+   bench a side - not a scatter of chairs. */
+function furnishRoom(room, index, ry, at, half, L) {
+  const k = room.dir + room.depth;
+  const alongRoom = ry - Math.PI / 2;
+
+  /* one piece down the middle */
+  const m1 = at(room.s0 + L * 0.5, 0, 0);
+  const drum = k % 2 === 1;
+  const top = makePlinth(m1.x, m1.z, drum ? 0.94 : 1.02, drum ? 0.32 : 0.40,
+    drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
+  if (drum) makeBowl(m1.x, m1.z, top, MAT.limestone, 1.0);
+  else makeSculpture(m1.x, m1.z, top, k, 1.02);
+
+  /* a long bench a side, turned along the room and set back from the wall:
+     enough to walk behind, enough to sit and look, and the lane down the
+     middle stays open end to end */
+  const BENCH_T = half - 2.1;
+  const bA = at(room.s0 + 2.6, BENCH_T, 0), bB = at(room.s1 - 2.6, -BENCH_T, 0);
+  makeBench(bA.x, bA.z, alongRoom, 2.6);
+  makeBench(bB.x, bB.z, alongRoom, 2.6);
+
+  /* and, in the first room of a section only, a case to look into */
+  if (room.depth === 0) {
+    const vt = at(room.s0 + 2.6, -BENCH_T, 0);
+    makeVitrine(vt.x, vt.z, alongRoom, k);
+  }
 }

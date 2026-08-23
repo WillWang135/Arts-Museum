@@ -57,6 +57,17 @@
       </div>
     </section>
 
+    <section class="rooms empty" id="rooms-strip">
+      <div class="rooms-head">
+        <div>
+          <strong>Exhibition rooms</strong>
+          <span id="rooms-note">Not required &mdash; without rooms the museum fills itself, in the order below.</span>
+        </div>
+        <button class="btn btn-quiet" id="room-add" type="button">Add a room</button>
+      </div>
+      <div class="rooms-list" id="rooms-list"></div>
+    </section>
+
     <section class="intake">
       <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add artwork images">
         <strong>Drop artwork here</strong>
@@ -195,6 +206,7 @@
 
 <!-- room shape, shared by the floorplan and the 3D build -->
 <script src="js/geometry.js"></script>
+<script src="js/rooms.js"></script>
 <script src="js/floorplan.js"></script>
 
 <!-- the setup screen -->

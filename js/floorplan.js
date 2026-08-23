@@ -5,7 +5,11 @@ function drawFloorplan(ctx, w, h, o) {
   o = o || {};
   const dark = !!o.dark;
   const pad = dark ? 10 : 26;
-  const reach = G.APO + G.WING_LEN + 1.5;
+  /* far enough out to hold the longest chain of rooms, so a section three
+     deep is drawn whole rather than running off the edge */
+  const layout = o.layout || exhibitionLayout();
+  const deepest = layout.rooms.reduce((m, r) => Math.max(m, r.s1), G.APO + G.ALCOVE_D);
+  const reach = deepest + 1.5;
   const s = Math.min((w - pad * 2) / (reach * 2), (h - pad * 2) / (reach * 2));
   const X = v => w / 2 + v * s, Z = v => h / 2 + v * s;
 
@@ -16,26 +20,28 @@ function drawFloorplan(ctx, w, h, o) {
 
   /* what actually hangs, not simply every artwork - a coverless track
      sits above another work and takes no wall slot of its own */
-  const n = hangingCount();
-  const layout = computeLayout(Math.max(n, 1));
   const open = layout.open;
   const step = Math.PI * 2 / G.SEG;
 
-  /* wings / alcoves as floor plates */
-  WING_DIR.forEach((u, k) => {
-    const v = { x: -u.z, z: u.x };
-    const isWing = open[k];
-    const L = isWing ? G.WING_LEN : G.ALCOVE_D;
-    const halfW = isWing ? G.WING_HALF : G.ALCOVE_HALF;
-    const a = { x: u.x * G.APO + v.x * halfW, z: u.z * G.APO + v.z * halfW };
-    const b = { x: u.x * (G.APO + L) + v.x * halfW, z: u.z * (G.APO + L) + v.z * halfW };
-    const c = { x: u.x * (G.APO + L) - v.x * halfW, z: u.z * (G.APO + L) - v.z * halfW };
-    const d = { x: u.x * G.APO - v.x * halfW, z: u.z * G.APO - v.z * halfW };
+  /* every room in every chain, as a floor plate */
+  const plate = (dir, s0, s1, halfW) => {
+    const u = WING_DIR[dir], vv = { x: -u.z, z: u.x };
+    const a = { x: u.x * s0 + vv.x * halfW, z: u.z * s0 + vv.z * halfW };
+    const b = { x: u.x * s1 + vv.x * halfW, z: u.z * s1 + vv.z * halfW };
+    const c = { x: u.x * s1 - vv.x * halfW, z: u.z * s1 - vv.z * halfW };
+    const d = { x: u.x * s0 - vv.x * halfW, z: u.z * s0 - vv.z * halfW };
     ctx.beginPath();
     ctx.moveTo(X(a.x), Z(a.z)); ctx.lineTo(X(b.x), Z(b.z));
     ctx.lineTo(X(c.x), Z(c.z)); ctx.lineTo(X(d.x), Z(d.z)); ctx.closePath();
     ctx.fillStyle = fill; ctx.fill();
     ctx.strokeStyle = ink; ctx.lineWidth = dark ? 1 : 1.6; ctx.stroke();
+  };
+  layout.rooms.forEach(room => {
+    plate(room.dir, room.s0, room.s1, room.half);
+    if (!room.last) plate(room.dir, room.s1, room.s1 + G.WALL_T + ROOM_GAP, G.DOOR_W / 2);
+  });
+  open.forEach((used, k) => {
+    if (!used) plate(k, G.APO, G.APO + G.ALCOVE_D, G.ALCOVE_HALF);
   });
 
   /* rotunda floor */
@@ -81,7 +87,8 @@ function drawFloorplan(ctx, w, h, o) {
   /* hanging positions */
   if (State.art.length) {
     ctx.fillStyle = dark ? "#7FE0CE" : "#0E4C44";
-    layout.slots.slice(0, n).forEach(sl => {
+    /* only the positions that actually carry something */
+    layout.slots.filter(sl => sl.artId !== undefined).forEach(sl => {
       ctx.beginPath();
       ctx.arc(X(sl.x + sl.nx * 0.4), Z(sl.z + sl.nz * 0.4), dark ? 2.2 : 3.6, 0, 6.3);
       ctx.fill();

@@ -843,7 +843,10 @@ function featuredStandIn(track) {
 }
 
 function hangingPlan() {
-  const chosen = State.art.find(a => a.featured) || State.art[0] || null;
+  /* The feature wall is never empty: if nobody has chosen, the first work
+     uploaded takes it. Decided here rather than at the wall, so the plan,
+     the hero floorplan and the museum all agree about what is on it. */
+  const chosen = ensureFeature();
   let featured = chosen, featuredTrack = null;
 
   if (chosen && artKind(chosen) === "audio" && !hasCover(chosen)) {

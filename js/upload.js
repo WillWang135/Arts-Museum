@@ -56,42 +56,42 @@ function renderRooms() {
   const rooms = museumRooms();
   list.innerHTML = "";
 
-  const main = mainRoomLoad();
-  const mainChip = document.createElement("div");
-  mainChip.className = "room-chip room-main" + (main.over ? " over" : "");
-  mainChip.dataset.id = "";
-  mainChip.innerHTML =
-    '<span class="room-no">1</span>' +
-    '<span class="room-title">' + MAIN_ROOM_NAME + '</span>' +
-    '<span class="room-count">' + main.works + " / " + main.cap +
-      (main.over ? " \u00b7 spills outward" : "") + '</span>';
-  list.appendChild(mainChip);
-
-  rooms.forEach((r, i) => {
-    const load = roomLoad(r.id);
+  shownRooms().forEach((r, i) => {
     const chip = document.createElement("div");
-    chip.className = "room-chip" + (load.over ? " over" : "");
-    chip.dataset.id = r.id;
-    chip.draggable = true;
+    const physical = r.fixed ? 1 : roomsNeeded(Math.min(r.works, r.cap));
+    chip.className = "room-chip" +
+      (r.fixed ? " room-main" : "") + (r.auto ? " room-auto" : "") +
+      (r.works > r.cap ? " over" : "");
+    chip.title = r.fixed ? "The rotunda you arrive in — its name is fixed"
+      : (r.auto ? "Opened automatically — click to name it and choose what hangs here"
+                : "Click to rename and choose what hangs here");
+    chip.dataset.id = r.id === null ? "" : r.id;
+    if (!r.fixed && !r.auto) chip.draggable = true;
     chip.innerHTML =
-      '<span class="grip">\u2261</span>' +
-      '<span class="room-no">' + (i + 2) + '</span>' +
-      '<button class="room-title" type="button" title="Rename this room and choose what hangs in it">' +
-        escapeText(r.name) + '</button>' +
-      '<span class="room-count">' + load.works + " / " + SECTION_CAP +
-        (load.physical > 1 ? " \u00b7 " + load.physical + " rooms" : "") + '</span>' +
-      '<button class="room-del" type="button" title="Remove this room">\u00d7</button>';
+      (r.fixed || r.auto ? "" : '<span class="grip">\u2261</span>') +
+      '<span class="room-no">' + (i + 1) + '</span>' +
+      (r.fixed
+        ? '<span class="room-title">' + MAIN_ROOM_NAME + '</span>'
+        : (r.auto
+          ? '<span class="room-title">' + escapeText(r.name) + '</span>'
+          : '<button class="room-title" type="button" title="Rename, and choose what hangs here">' +
+            escapeText(r.name) + '</button>')) +
+      '<span class="room-count">' + r.works + " / " + r.cap +
+        (r.spills ? " \u00b7 spills outward" : "") +
+        (!r.fixed && physical > 1 ? " \u00b7 " + physical + " rooms" : "") + '</span>' +
+      (r.fixed || r.auto ? "" : '<button class="room-del" type="button" title="Remove this room">\u00d7</button>');
     list.appendChild(chip);
   });
 
-  $("room-add").disabled = rooms.length >= DIR_COUNT;
+  $("room-add").disabled = rooms.length >= MAX_SECTIONS;
   const note = $("rooms-note");
   if (note) {
     note.textContent = rooms.length
       ? "Click a room to rename it and choose what hangs there, or drag a work onto it. " +
         "A section of more than " + ROOM_CAP + " opens another room beyond it, under the same name."
-      : "Not required — without rooms the museum fills itself: " + mainRoomCapacity() +
-        " in the Main Exhibition, then a room for every " + AUTO_GROUP + " after that.";
+      : "Not required — left alone the museum fills itself: " + mainRoomCapacity() +
+        " in the Main Exhibition, then rooms of " + ROOM_CAP + " to the north, south, west and east. " +
+        "Add rooms to name them and choose what hangs where, up to " + MAX_SECTIONS + ".";
   }
 }
 
@@ -314,7 +314,18 @@ $("room-add").addEventListener("click", () => {
   if (room) openRoomPanel(room.id);
 });
 $("rooms-list").addEventListener("click", e => {
-  const chip = e.target.closest(".room-chip"); if (!chip || !chip.dataset.id) return;
+  const chip = e.target.closest(".room-chip");
+  if (!chip) return;
+  /* A room the overflow opened is not the host's yet. Clicking it makes it
+     theirs - named, listed, and ready to be filled - which is the obvious
+     thing to want from a room you can already see on the plan. */
+  if (chip.classList.contains("room-auto")) {
+    const room = addRoom(chip.querySelector(".room-title").textContent);
+    renderLabels();
+    if (room) openRoomPanel(room.id);
+    return;
+  }
+  if (!chip.dataset.id) return;
   if (e.target.closest(".room-del")) { removeRoom(+chip.dataset.id); renderLabels(); return; }
   if (e.target.closest(".room-title")) openRoomPanel(+chip.dataset.id);
 });

@@ -55,7 +55,16 @@ const WING_ORDER = [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST, 7, 1, 3, 5];
 const ROT_CAP = 12;          // twelve on the rotunda walls, beside the feature
 const ROOM_CAP = 10;         // four a side, two on the end
 const SECTION_CAP = 18;      // as much as one named section will take
-const AUTO_GROUP = 5;        // every five works past the middle opens a room
+const AUTO_GROUP = 5;        // the overflow that first calls a side room into being
+
+/* Eight ways out of the rotunda, so eight sections and no more - Room 1 to
+   Room 8. Left to arrange itself the museum uses only the four square
+   directions; the diagonals are for a host who has asked for them by naming
+   the rooms. A building that sprouts a north-east wing on its own looks
+   like an accident, because it is one. */
+const MAIN_ROOM_NAME = "Main Exhibition";
+const MAX_SECTIONS = 8;
+const MAX_SECTIONS_AUTO = 4;
 
 /* How many works each wall of a room takes. Fixed rather than worked out
    from the length, because the length was chosen for these numbers - and
@@ -144,6 +153,18 @@ function slotsOnRun(r, k, out) {
    another room further along the same direction, under the same
    name, so it reads as one continuous exhibition.
    ============================================================ */
+/* Never more than eight sections. Anything past the eighth is folded into
+   it, where it becomes another physical room further along that direction
+   under the same name - which is exactly what a section outgrowing one room
+   already does, so nothing new has to be invented for it. */
+function capSections(sections, max) {
+  if (sections.length <= max) return sections;
+  const kept = sections.slice(0, max);
+  const tail = sections.slice(max);
+  tail.forEach(s => { kept[max - 1].ids = kept[max - 1].ids.concat(s.ids); });
+  return kept;
+}
+
 function planRooms(sections) {
   const rooms = [];
   /* How far out each direction has already been built. A ninth section has
@@ -186,21 +207,45 @@ function openDirections(rooms) {
 /* The rotunda first, then as many side rooms as the overflow needs, ten to
    a room, opposite pairs first. Exactly what the museum did before rooms
    could be named - a host who just wants to walk in still can. */
+/* How many rooms an overflow of n works calls for. A room opens as soon as
+   there is anything to put in it, and then FILLS - to ten, which is what a
+   room holds - before the next one opens. Sharing the overflow evenly
+   between as many rooms as five-would-make was the mistake: thirty works
+   became six rooms of five rather than three full ones. */
+function roomsForOverflow(n, max) {
+  if (n <= 0) return 0;
+  return Math.min(max, Math.max(1, Math.ceil(n / ROOM_CAP)));
+}
+
+/* Works shared between a number of rooms, filling each to ten in turn and
+   only spreading out when there are more works than rooms can hold. */
+function shareIntoRooms(ids, rooms) {
+  const out = [];
+  for (let i = 0; i < rooms; i++) out.push([]);
+  if (!rooms) return out;
+  if (ids.length <= rooms * ROOM_CAP) {
+    /* fill each in turn, so room one is full before room two has anything */
+    let r = 0;
+    ids.forEach(id => {
+      while (r < rooms - 1 && out[r].length >= ROOM_CAP) r++;
+      out[r].push(id);
+    });
+  } else {
+    /* more than the rooms can hold: the extra goes deeper, evenly */
+    ids.forEach((id, i) => { out[i % rooms].push(id); });
+  }
+  return out;
+}
+
 function autoSections(ids) {
   const rot = ids.slice(0, ROT_CAP);
   const rest = ids.slice(ROT_CAP);
-  const sections = [{ name: "Main Exhibition", ids: rot, central: true }];
+  const sections = [{ name: MAIN_ROOM_NAME, ids: rot, central: true }];
 
-  /* Every five works past the middle opens a room, so the museum grows a
-     room at a time rather than waiting until one is full. The works are then
-     shared evenly between the rooms that opened, which is why five works
-     make one room of five rather than one of five and one empty. */
-  const count = Math.ceil(rest.length / AUTO_GROUP);
-  for (let i = 0; i < count; i++) {
-    const from = Math.round(i * rest.length / count);
-    const to = Math.round((i + 1) * rest.length / count);
-    sections.push({ name: "Room " + (i + 1), ids: rest.slice(from, to) });
-  }
+  const rooms = roomsForOverflow(rest.length, MAX_SECTIONS_AUTO);
+  shareIntoRooms(rest, rooms).forEach((group, i) => {
+    if (group.length) sections.push({ name: "Room " + (i + 1), ids: group });
+  });
   return sections;
 }
 
@@ -246,17 +291,19 @@ function layoutSections(sections) {
      doubled up on a facet, where two pictures on a wall built for one is
      two pictures touching. Settled by looking, because opening one more
      doorway can take away the very facet that made room for it. */
+  const maxSections = outer.some(s => s.curated) ? MAX_SECTIONS : MAX_SECTIONS_AUTO;
+  outer = capSections(outer, maxSections);
   let rooms = planRooms(outer);
   let doors = activeDoors(rooms);
   let rotRuns = rotundaRuns(doors);
   for (let pass = 0; pass < 4 && centralIds.length > rotRuns.length; pass++) {
     const spill = centralIds.slice(rotRuns.length);
     centralIds = centralIds.slice(0, rotRuns.length);
-    const extra = [];
-    for (let i = 0; i < spill.length; i += ROOM_CAP) {
-      extra.push({ name: "Room " + (outer.length + extra.length + 1), ids: spill.slice(i, i + ROOM_CAP) });
+    if (outer.length < maxSections) {
+      outer.push({ name: "Room " + (outer.length + 1), ids: spill, curated: outer.length ? outer[0].curated : false });
+    } else {
+      outer[outer.length - 1].ids = outer[outer.length - 1].ids.concat(spill);
     }
-    outer = outer.concat(extra);
     rooms = planRooms(outer);
     doors = activeDoors(rooms);
     rotRuns = rotundaRuns(doors);

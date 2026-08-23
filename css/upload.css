@@ -215,3 +215,8 @@ button.room-title:hover{border-bottom-color:var(--viridian)}
   font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--rule);
   border-radius:2px;background:#fff;color:var(--ink);max-width:140px;
 }
+
+.room-auto{border-style:dashed;background:#FAFAF7;cursor:pointer}
+.room-auto .room-title{color:var(--slate)}
+.room-auto:hover{border-color:var(--viridian);background:#F3F6F4}
+.room-auto:hover .room-title{color:var(--ink)}

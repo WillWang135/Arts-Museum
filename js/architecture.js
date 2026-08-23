@@ -249,11 +249,15 @@ function buildSideRoom(room, index, layout) {
     t0: room.s0 - 1.6, t1: room.s0 + 1.3, doorHalf: G.DOOR_W / 2 - 0.45
   });
   if (!room.last) {
+    /* The passage through to the next room, walkable end to end. Written as
+       a room-shaped zone rather than a doorway one, because a doorway zone
+       is a slot in a wall and this is a corridor - and with the wrong one
+       here the opening was there to look through and not to walk through. */
     Nav.zones.push({
       ux: u.x, uz: u.z, vx: v.x, vz: v.z,
-      s0: room.s1 - 0.8, s1: room.s1 + G.WALL_T + ROOM_GAP + 0.8,
-      half: G.DOOR_W / 2 - 0.45,
-      t0: room.s1, t1: room.s1, doorHalf: 0
+      s0: room.s1 - 1.0, s1: room.s1 + G.WALL_T + ROOM_GAP + 1.0,
+      half: G.DOOR_W / 2 - 0.35,
+      t0: room.s1, t1: room.s1 - 1, doorHalf: 0
     });
   }
 
@@ -319,18 +323,35 @@ function buildRoomSign(room, k) {
      clear of the ceiling, and nothing hangs on a doorway facet anyway. */
   const y = G.DOOR_H + 0.16 + h / 2;
 
-  const px = u.x * (G.APO - 0.30), pz = u.z * (G.APO - 0.30);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.22, h + 0.22, 0.08), MAT.darkStone);
+  /* Three surfaces five millimetres apart is three surfaces the depth buffer
+     cannot tell apart at fourteen metres, and the sign blinked as the camera
+     moved. They are properly spaced now - a case, a brass rim standing proud
+     of it, and the lit face standing proud of that - and the face is opaque
+     and offset toward the viewer besides, so nothing behind it can win a
+     pixel it should not have. */
+  const px = u.x * (G.APO - 0.22), pz = u.z * (G.APO - 0.22);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.24, h + 0.24, 0.10), MAT.darkStone);
   back.position.set(px, y, pz); back.rotation.y = ry;
   back.castShadow = true; root.add(back);
 
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.02), MAT.brass);
-  edge.position.set(px - u.x * 0.05, y, pz - u.z * 0.05); edge.rotation.y = ry;
-  root.add(edge);
+  /* the rim: a frame of four bars rather than a slab behind the face, so it
+     is never in the same place as anything else */
+  const rimT = 0.055, rimD = 0.05;
+  const rimZ = 0.075;
+  [[w + 0.20, rimT, 0, (h + rimT) / 2], [w + 0.20, rimT, 0, -(h + rimT) / 2],
+   [rimT, h + 0.20, (w + rimT) / 2, 0], [rimT, h + 0.20, -(w + rimT) / 2, 0]].forEach(b => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(b[0], b[1], rimD), MAT.brass);
+    m.position.set(px - u.x * rimZ + (-u.z) * b[2], y + b[3], pz - u.z * rimZ + u.x * b[2]);
+    m.rotation.y = ry;
+    root.add(m);
+  });
 
   const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
-    new THREE.MeshBasicMaterial({ map: plate.tex, transparent: true, toneMapped: false }));
-  face.position.set(px - u.x * 0.065, y, pz - u.z * 0.065);
+    new THREE.MeshBasicMaterial({
+      map: plate.tex, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4
+    }));
+  face.position.set(px - u.x * 0.085, y, pz - u.z * 0.085);
   face.rotation.y = ry + Math.PI;
   face.renderOrder = 3;
   root.add(face);
@@ -348,26 +369,38 @@ function buildRoomSign(room, k) {
 function furnishRoom(room, index, ry, at, half, L) {
   const k = room.dir + room.depth;
   const alongRoom = ry - Math.PI / 2;
+  const mid = room.s0 + L / 2;
 
-  /* one piece down the middle */
-  const m1 = at(room.s0 + L * 0.5, 0, 0);
+  /* Everything lives in the middle third of the room. The walls are for
+     looking at, the middle is for standing in, and the two must not meet:
+     a bench against a hang line is a bench you have to edge round to see
+     what is above it. */
+  const m1 = at(mid, 0, 0);
   const drum = k % 2 === 1;
   const top = makePlinth(m1.x, m1.z, drum ? 0.94 : 1.02, drum ? 0.32 : 0.40,
     drum ? MAT.limestone : MAT.travertine, drum ? "drum" : "box");
   if (drum) makeBowl(m1.x, m1.z, top, MAT.limestone, 1.0);
   else makeSculpture(m1.x, m1.z, top, k, 1.02);
 
-  /* a long bench a side, turned along the room and set back from the wall:
-     enough to walk behind, enough to sit and look, and the lane down the
-     middle stays open end to end */
-  const BENCH_T = half - 2.1;
-  const bA = at(room.s0 + 2.6, BENCH_T, 0), bB = at(room.s1 - 2.6, -BENCH_T, 0);
-  makeBench(bA.x, bA.z, alongRoom, 2.6);
-  makeBench(bB.x, bB.z, alongRoom, 2.6);
+  /* a piece either side of it, further along the room's own axis */
+  const a1 = at(mid - 4.4, 0, 0), a2 = at(mid + 4.4, 0, 0);
+  if (k % 3 === 0) { makeArchway(a1.x, a1.z, ry, 0.95); makeFloorStone(a2.x, a2.z, 0.95, MAT.limestoneLo); }
+  else if (k % 3 === 1) { makeFloorStone(a1.x, a1.z, 0.95, MAT.pebble); makeVitrine(a2.x, a2.z, alongRoom, k); }
+  else { makeVitrine(a1.x, a1.z, alongRoom, k); makeArchway(a2.x, a2.z, ry + Math.PI, 0.95); }
 
-  /* and, in the first room of a section only, a case to look into */
-  if (room.depth === 0) {
-    const vt = at(room.s0 + 2.6, -BENCH_T, 0);
-    makeVitrine(vt.x, vt.z, alongRoom, k);
+  /* Two long benches, one either side of the middle, turned along the room
+     and facing the walls they serve. Set at 2.4 m from the centre line they
+     leave 2.4 m of clear floor between bench and wall to stand and look,
+     and 4.8 m down the middle to walk through. */
+  const BENCH_T = 2.4;
+  [1, -1].forEach(sg => {
+    const b = at(mid, sg * BENCH_T, 0);
+    makeBench(b.x, b.z, alongRoom, 3.2);
+  });
+
+  /* and the reading stand, in the first room of a section only */
+  if (room.first) {
+    const ls = at(room.s0 + 3.2, -2.6, 0);
+    makeLabelStand(ls.x, ls.z, ry + Math.PI);
   }
 }

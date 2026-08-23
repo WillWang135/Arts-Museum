@@ -40,8 +40,29 @@ function drawFloorplan(ctx, w, h, o) {
     plate(room.dir, room.s0, room.s1, room.half);
     if (!room.last) plate(room.dir, room.s1, room.s1 + G.WALL_T + ROOM_GAP, G.DOOR_W / 2);
   });
-  open.forEach((used, k) => {
-    if (!used) plate(k, G.APO, G.APO + G.ALCOVE_D, G.ALCOVE_HALF);
+
+  /* Where nothing has opened yet, a small mark on each of the four square
+     sides rather than an empty room drawn in advance. It keeps the plan
+     balanced while the museum is small, and each one goes as its own
+     direction is built - so the drawing grows into the building rather
+     than pretending to be it. */
+  [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST].forEach(k => {
+    if (open[k]) return;
+    const u = WING_DIR[k], vv = { x: -u.z, z: u.x };
+    const s0 = G.APO + 0.9, s1 = G.APO + 2.5, hw = 1.15;
+    ctx.beginPath();
+    const pts = [[s0, hw], [s1, hw * 0.55], [s1, -hw * 0.55], [s0, -hw]];
+    pts.forEach((pt, i) => {
+      const px = u.x * pt[0] + vv.x * pt[1], pz = u.z * pt[0] + vv.z * pt[1];
+      i ? ctx.lineTo(X(px), Z(pz)) : ctx.moveTo(X(px), Z(pz));
+    });
+    ctx.closePath();
+    ctx.fillStyle = dark ? "rgba(255,255,255,.05)" : "#F0F0EB";
+    ctx.fill();
+    ctx.strokeStyle = soft; ctx.lineWidth = dark ? 1 : 1.4;
+    ctx.setLineDash(dark ? [3, 3] : [5, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   });
 
   /* rotunda floor */

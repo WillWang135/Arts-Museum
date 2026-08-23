@@ -35,24 +35,21 @@ function roomName(id) {
    true. */
 function addRoom(name) {
   const rooms = museumRooms();
-  if (rooms.length >= DIR_COUNT) return null;
+  if (rooms.length >= MAX_SECTIONS) return null;
   const room = { id: State.nextId++, name: (name || "").trim() || nextRoomName() };
   rooms.push(room);
   return room;
 }
 function nextRoomName(alsoTaken) {
   const taken = museumRooms().map(r => r.name).concat(alsoTaken || []);
-  for (let i = 1; i <= DIR_COUNT + 4; i++) {
+  for (let i = 1; i <= MAX_SECTIONS; i++) {
     const n = "Room " + i;
     if (taken.indexOf(n) === -1) return n;
   }
-  return "Room " + (museumRooms().length + 1);
+  return "Room " + Math.min(MAX_SECTIONS, museumRooms().length + 1);
 }
 
-/* The central room is not one of them. It is the rotunda you arrive in, it
-   is always called the Main Exhibition, and its name is not the host's to
-   change - every other name in the building is. */
-const MAIN_ROOM_NAME = "Main Exhibition";
+/* MAIN_ROOM_NAME lives in js/geometry.js, which loads first and needs it. */
 function mainRoomCapacity() { return ROT_CAP + 1; }        // and the feature wall
 function removeRoom(id) {
   State.rooms = museumRooms().filter(r => r.id !== id);
@@ -114,20 +111,17 @@ function exhibitionSections(wallArt) {
   museumRooms().forEach(room => {
     const ids = artInRoom(room.id, list).map(a => a.id).slice(0, SECTION_CAP);
     if (!ids.length) return;
-    sections.push({ name: room.name, ids: ids });
+    sections.push({ name: room.name, ids: ids, curated: true });
   });
 
-  /* Then whatever the middle could not hold. Named in the same sequence as
-     the automatic rooms, carrying on from the host's - "Overflow 2" on a
-     brass sign over a doorway is not a room anybody meant to build. */
-  const spill = loose.slice(ROT_CAP);
-  const extra = Math.ceil(spill.length / AUTO_GROUP);
-  for (let i = 0; i < extra; i++) {
-    const from = Math.round(i * spill.length / extra);
-    const to = Math.round((i + 1) * spill.length / extra);
-    sections.push({ name: nextRoomName(sections.map(s => s.name)),
-                    ids: spill.slice(from, to).map(a => a.id) });
-  }
+  /* Then whatever the middle could not hold, filling rooms to ten in turn
+     rather than opening one per five. */
+  const spill = loose.slice(ROT_CAP).map(a => a.id);
+  const room = roomsForOverflow(spill.length, Math.max(0, MAX_SECTIONS - (sections.length - 1)));
+  shareIntoRooms(spill, room).forEach(group => {
+    if (!group.length) return;
+    sections.push({ name: nextRoomName(sections.map(s => s.name)), ids: group, curated: true });
+  });
   return sections;
 }
 
@@ -153,4 +147,37 @@ function roomLoad(id) {
 function mainRoomLoad() {
   const n = artInRoom(null).length;
   return { works: n, cap: mainRoomCapacity(), over: n > ROT_CAP };
+}
+
+
+/* ---------- what the home screen shows ----------
+   Every room the museum will actually build, whether the host made it or
+   the overflow did. A host who uploads twenty works and names nothing
+   should still see "Room 1 - 7 works" before going in, because that is
+   what they are about to walk into. */
+function shownRooms() {
+  const loose = artInRoom(null).length;
+  const out = [{ id: null, name: MAIN_ROOM_NAME, fixed: true,
+                 works: Math.min(loose, mainRoomCapacity()), cap: mainRoomCapacity(),
+                 spills: loose > mainRoomCapacity() }];
+  museumRooms().forEach(r => {
+    out.push({ id: r.id, name: r.name, works: artInRoom(r.id).length, cap: SECTION_CAP });
+  });
+
+  /* the rooms the overflow is going to open, listed before they are asked
+     for - the plan already knows about them, so the host should too */
+  const wall = hangingPlan().wall;
+  const spill = artInRoom(null, wall).length - ROT_CAP;
+  const auto = roomsForOverflow(Math.max(0, spill),
+    Math.max(0, (curated() ? MAX_SECTIONS : MAX_SECTIONS_AUTO) - museumRooms().length));
+  if (auto > 0) {
+    const groups = shareIntoRooms(new Array(Math.max(0, spill)).fill(0), auto);
+    const taken = out.map(r => r.name);
+    for (let i = 0; i < auto; i++) {
+      const name = nextRoomName(taken);
+      taken.push(name);
+      out.push({ id: null, name: name, auto: true, works: groups[i].length, cap: ROOM_CAP });
+    }
+  }
+  return out;
 }

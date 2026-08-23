@@ -192,6 +192,17 @@ body.is-guest #clear-btn{display:none !important}
   border-bottom:1px solid transparent;
 }
 button.room-title:hover{border-bottom-color:var(--viridian)}
+input.room-rename{
+  width:8.5em;cursor:text;border-bottom:1px dashed var(--hairline);
+}
+input.room-rename:hover{border-bottom-color:var(--slate)}
+input.room-rename:focus{outline:0;border-bottom:1px solid var(--viridian)}
+.room-open{
+  border:1px solid var(--rule);background:#fff;border-radius:2px;cursor:pointer;
+  font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--slate);padding:4px 7px;
+}
+.room-open:hover{border-color:var(--viridian);color:var(--viridian)}
 .room-main{background:#F3F6F4;border-color:#CFE0D9;cursor:default}
 .room-main .room-title{cursor:default}
 .room-chip.over{border-color:var(--viridian);background:#EEF5F3}

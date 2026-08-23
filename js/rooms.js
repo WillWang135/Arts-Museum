@@ -104,21 +104,73 @@ function exhibitionSections(wallArt) {
 
   const sections = [];
   const loose = artInRoom(null, list);
-  sections.push({ name: MAIN_ROOM_NAME, central: true, ids: loose.slice(0, ROT_CAP).map(a => a.id) });
+  const named = museumRooms().filter(r => artInRoom(r.id, list).length).length;
 
   /* The host's own rooms take their directions first - they are the
-     deliberate ones, and they should be the first doors a visitor sees. */
-  museumRooms().forEach(room => {
-    const ids = artInRoom(room.id, list).map(a => a.id).slice(0, SECTION_CAP);
-    if (!ids.length) return;
-    sections.push({ name: room.name, ids: ids, curated: true });
-  });
+     deliberate ones, and they should be the first doors a visitor sees.
 
-  /* Then whatever the middle could not hold, filling rooms to ten in turn
-     rather than opening one per five. */
-  const spill = loose.slice(ROT_CAP).map(a => a.id);
-  const room = roomsForOverflow(spill.length, Math.max(0, MAX_SECTIONS - (sections.length - 1)));
-  shareIntoRooms(spill, room).forEach(group => {
+     A room holds eighteen. Anything the host puts past that is not thrown
+     away - it goes back into the pool and hangs somewhere else, which is
+     the only honest thing to do with a picture somebody uploaded. */
+  const turnedAway = [];
+  const curatedRooms = [];
+  museumRooms().forEach(room => {
+    const all = artInRoom(room.id, list).map(a => a.id);
+    if (!all.length) return;
+    curatedRooms.push({ name: room.name, ids: all.slice(0, SECTION_CAP), curated: true });
+    turnedAway.push.apply(turnedAway, all.slice(SECTION_CAP));
+  });
+  /* room the host's own sections have going spare, which the overflow fills
+     before it opens anything new */
+  const spare = curatedRooms.reduce((n, s) => n + (SECTION_CAP - s.ids.length), 0);
+
+  /* What the middle will really have walls for. Every doorway costs it a
+     facet, and how many doorways there are depends on how many sections
+     there turn out to be - so it is settled by looking, the same way the
+     automatic plan settles it. Guessing high left works with nowhere to
+     hang: the rotunda had been promised twelve walls and got eight.
+
+     The count has to include what the host's own rooms turned away, not
+     just the unassigned pile. A host who drops everything into one room
+     sends a hundred works looking for somewhere to go, and those open
+     doors of their own. */
+  let hold = ROT_CAP;
+  for (let pass = 0; pass < 6; pass++) {
+    const idle = Math.max(0, hold - loose.length);     /* middle walls going spare */
+    const spillNow = Math.max(0,
+      Math.max(0, loose.length - hold) + turnedAway.length - spare - idle);
+    const extra = roomsForOverflow(spillNow, Math.max(0, MAX_SECTIONS - named));
+    const next = ROT_CAP - Math.max(0, (named + extra) - MAX_SECTIONS_AUTO);
+    if (next === hold) break;
+    hold = next;
+  }
+  sections.push({ name: MAIN_ROOM_NAME, central: true, ids: loose.slice(0, hold).map(a => a.id) });
+  curatedRooms.forEach(s => sections.push(s));
+
+  /* Then whatever the middle could not hold. Rooms the host already made
+     take it first, up to what a section holds - a work has to hang
+     somewhere, and a half-empty Photography beats a work that is in the
+     museum's list and on none of its walls. Only what is left opens
+     rooms of its own. */
+  let spill = loose.slice(hold).map(a => a.id).concat(turnedAway);
+  for (let i = 1; i < sections.length && spill.length; i++) {
+    const room = SECTION_CAP - sections[i].ids.length;
+    if (room <= 0) continue;
+    sections[i].ids = sections[i].ids.concat(spill.slice(0, room));
+    spill = spill.slice(room);
+  }
+  /* and the middle takes what is still homeless before any new room opens.
+     A host who drops every work into Photography has left the rotunda bare
+     while works queue for a wall; hanging them in the Main Exhibition is
+     better than hanging them nowhere. */
+  const middle = hold - sections[0].ids.length;
+  if (middle > 0 && spill.length) {
+    sections[0].ids = sections[0].ids.concat(spill.slice(0, middle));
+    spill = spill.slice(middle);
+  }
+
+  const extra = roomsForOverflow(spill.length, Math.max(0, MAX_SECTIONS - named));
+  shareIntoRooms(spill, extra).forEach(group => {
     if (!group.length) return;
     sections.push({ name: nextRoomName(sections.map(s => s.name)), ids: group, curated: true });
   });
@@ -169,7 +221,7 @@ function shownRooms() {
   const wall = hangingPlan().wall;
   const spill = artInRoom(null, wall).length - ROT_CAP;
   const auto = roomsForOverflow(Math.max(0, spill),
-    Math.max(0, (curated() ? MAX_SECTIONS : MAX_SECTIONS_AUTO) - museumRooms().length));
+    Math.max(0, (curated() ? MAX_SECTIONS : autoSectionLimit(Math.max(0, spill))) - museumRooms().length));
   if (auto > 0) {
     const groups = shareIntoRooms(new Array(Math.max(0, spill)).fill(0), auto);
     const taken = out.map(r => r.name);

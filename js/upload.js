@@ -21,7 +21,9 @@ function paintPlan() {
   const rooms = count === 0 ? "Rotunda only"
     : "Rotunda + " + count + (count === 1 ? " room" : " rooms");
   const named = (State.session.title || "").trim();
-  $("plan-status").textContent = n === 0 ? "Empty floorplan" : (named ? named + " — " + rooms : rooms);
+  const full = n >= MUSEUM_CAP ? " — full" : (n > MUSEUM_CAP * 0.8 ? " — " + n + "/" + MUSEUM_CAP : "");
+  $("plan-status").textContent = n === 0 ? "Empty floorplan"
+    : (named ? named + " — " + rooms + full : rooms + full);
 }
 window.addEventListener("resize", paintPlan);
 
@@ -74,8 +76,9 @@ function renderRooms() {
         ? '<span class="room-title">' + MAIN_ROOM_NAME + '</span>'
         : (r.auto
           ? '<span class="room-title">' + escapeText(r.name) + '</span>'
-          : '<button class="room-title" type="button" title="Rename, and choose what hangs here">' +
-            escapeText(r.name) + '</button>')) +
+          : '<input class="room-title room-rename" maxlength="40" value="' + escapeText(r.name) +
+            '" title="Type a new name for this room">' +
+            '<button class="room-open" type="button" title="Choose what hangs here">Works</button>')) +
       '<span class="room-count">' + r.works + " / " + r.cap +
         (r.spills ? " \u00b7 spills outward" : "") +
         (!r.fixed && physical > 1 ? " \u00b7 " + physical + " rooms" : "") + '</span>' +
@@ -309,9 +312,11 @@ labelsEl.addEventListener("click", e => {
 
 /* ---------- the rooms strip ---------- */
 $("room-add").addEventListener("click", () => {
-  const room = addRoom();
+  /* The room appears in the strip and that is all. Opening its panel
+     unasked put a picker on the screen that then followed the host into
+     the museum, because an overlay left open is an overlay still open. */
+  addRoom();
   renderLabels();
-  if (room) openRoomPanel(room.id);
 });
 $("rooms-list").addEventListener("click", e => {
   const chip = e.target.closest(".room-chip");
@@ -320,15 +325,29 @@ $("rooms-list").addEventListener("click", e => {
      theirs - named, listed, and ready to be filled - which is the obvious
      thing to want from a room you can already see on the plan. */
   if (chip.classList.contains("room-auto")) {
-    const room = addRoom(chip.querySelector(".room-title").textContent);
+    addRoom(chip.querySelector(".room-title").textContent);
     renderLabels();
-    if (room) openRoomPanel(room.id);
     return;
   }
   if (!chip.dataset.id) return;
   if (e.target.closest(".room-del")) { removeRoom(+chip.dataset.id); renderLabels(); return; }
-  if (e.target.closest(".room-title")) openRoomPanel(+chip.dataset.id);
+  if (e.target.closest(".room-open")) openRoomPanel(+chip.dataset.id);
 });
+
+/* Typed straight into the strip: the name changes as it is typed, and the
+   number beside it does not move, because the number is the room's place in
+   the list and the name is only what it is called. */
+$("rooms-list").addEventListener("input", e => {
+  if (!e.target.classList.contains("room-rename")) return;
+  const chip = e.target.closest(".room-chip");
+  if (!chip || !chip.dataset.id) return;
+  renameRoom(+chip.dataset.id, e.target.value);
+  paintPlan();
+});
+$("rooms-list").addEventListener("blur", e => {
+  if (!e.target.classList.contains("room-rename")) return;
+  renderLabels();
+}, true);
 
 /* Dragging a work onto a room puts it in that room; dragging a room
    reorders the sections, which is the same as moving one round the
@@ -336,6 +355,7 @@ $("rooms-list").addEventListener("click", e => {
 let dragRoomId = null;
 $("rooms-list").addEventListener("dragstart", e => {
   const chip = e.target.closest(".room-chip"); if (!chip || !chip.dataset.id) return;
+  if (e.target.classList.contains("room-rename")) { e.preventDefault(); return; }
   dragRoomId = +chip.dataset.id;
   chip.classList.add("dragging");
   e.dataTransfer.effectAllowed = "move";
@@ -480,8 +500,11 @@ async function buildArtwork(file, kind) {
 }
 
 async function ingest(fileList) {
-  const skipped = { type: [], big: [], broken: [] };
+  const skipped = { type: [], big: [], broken: [], full: 0 };
   const queue = [];
+  /* The museum holds what it holds. Slides are not artwork and are counted
+     separately - a presentation is not hung on a wall. */
+  let room = MUSEUM_CAP - State.art.length;
 
   /* A PowerPoint dropped here is the obvious thing to try, so it gets an
      answer rather than "not a file the museum can show". */
@@ -492,6 +515,8 @@ async function ingest(fileList) {
     const kind = fileKind(f);
     if (!kind) { skipped.type.push(f.name); return; }
     if (kind !== "image" && f.size > MAX_MEDIA_MB * 1048576) { skipped.big.push(f.name); return; }
+    if (room <= 0) { skipped.full++; return; }
+    room--;
     queue.push({ file: f, kind: kind });
   });
 
@@ -524,6 +549,11 @@ function reportSkipped(s) {
     "\nA clip travels inside the session file, so a big one slows down every student who joins. Trim it first.");
   if (s.broken.length) lines.push("Could not be read: " + s.broken.join(", ") +
     "\nThe file may be damaged, or use a format this browser cannot open.");
+  if (s.full) lines.push("The exhibition is full at " + MUSEUM_CAP + " artworks, so " + s.full +
+    (s.full === 1 ? " file was" : " files were") + " left out." +
+    "\n\nThat is " + SECTION_CAP + " in each of " + MAX_SECTIONS + " rooms, plus the feature wall " +
+    "and what the rotunda still has walls for once all eight doorways are open." +
+    "\n\nPresentation slides are separate and do not count toward it.");
   if (lines.length) alert(lines.join("\n\n"));
 }
 

@@ -94,6 +94,9 @@ function buildShell(layout) {
     buildSideRoom(room, index, layout);
   });
 
+  /* and a piece in a recess wherever a square side has no room yet */
+  layout.niches.forEach(k => buildNiche(k));
+
 
   /* ---- furnishing the rotunda ----
      A room to walk through and stand in, so it carries pieces and nothing to

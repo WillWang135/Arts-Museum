@@ -575,16 +575,33 @@ function buildMuseum() {
   buildLights();
 
   /* Every work goes where the plan put it - which, when the host has
-     arranged rooms, is the room they chose. Anything the plan could not
-     place (a wall that ran out) falls back to the next free position, so a
-     work is never quietly dropped. */
-  const spare = layout.slots.filter(s => s.artId === undefined);
+     arranged rooms, is the room they chose.
+
+     One position, one picture, and the position is struck off the moment it
+     is used. The old fallback ended "and if all else fails, slot zero",
+     which is how two works came to be hanging in the same frame: whenever
+     the plan could not place something - a section that lost its direction,
+     a track that had been paired off - the leftover landed on top of
+     whatever was already in the first position on the wall. Nothing is
+     hung twice in the same place now, and anything genuinely without a
+     position simply does not hang, which the capacity limit makes
+     impossible to reach in the first place. */
+  const taken = {};
+  const spare = [];
+  layout.slots.forEach((s, i) => { if (s.artId === undefined) spare.push(i); });
   let sp = 0;
+  const seen = {};
   music.wall.forEach(art => {
-    let s = layout.slots[layout.byArt[art.id]];
-    if (!s) s = spare[sp++];
-    if (!s) s = layout.slots[0];
-    if (!s) return;
+    if (seen[art.id]) return;                       /* never the same work twice */
+    seen[art.id] = true;
+    let i = layout.byArt[art.id];
+    if (i === undefined || taken[i]) {
+      while (sp < spare.length && taken[spare[sp]]) sp++;
+      i = sp < spare.length ? spare[sp++] : undefined;
+    }
+    if (i === undefined) return;
+    taken[i] = true;
+    const s = layout.slots[i];
     hangArtwork(art, new THREE.Vector3(s.x, G.ART_Y, s.z),
       new THREE.Vector3(s.nx, 0, s.nz).normalize(), 1, false);
   });

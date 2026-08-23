@@ -46,8 +46,7 @@ function drawFloorplan(ctx, w, h, o) {
      balanced while the museum is small, and each one goes as its own
      direction is built - so the drawing grows into the building rather
      than pretending to be it. */
-  [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST].forEach(k => {
-    if (open[k]) return;
+  layout.niches.forEach(k => {
     const u = WING_DIR[k], vv = { x: -u.z, z: u.x };
     const s0 = G.APO + 0.9, s1 = G.APO + 2.5, hw = 1.15;
     ctx.beginPath();

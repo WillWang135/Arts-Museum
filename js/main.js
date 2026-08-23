@@ -3,6 +3,10 @@
    ============================================================ */
 function enterMuseum() {
   if (!State.art.length) return;
+  /* Whatever was open on the setup screen stays there. #overlay-root lives
+     inside the museum screen, so a room panel left open followed the host
+     through the door and greeted them as a picker over the gallery. */
+  closeOverlay();
   /* Every room opens silent. Nothing plays until a visitor asks it to. */
   stopAllMedia();
   document.body.classList.add("in-museum");

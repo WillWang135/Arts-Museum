@@ -32,17 +32,22 @@ That's the whole thing. To share a museum with a class you'll need it on the web
 |---|---|
 | **1. Collect** | Drag in **PNG, JPG, MP3, MP4 or MOV** — one at a time or the whole class at once. Images are resized to 1200 px; a track gets generated cover art, a video gets a poster frame lifted from it. |
 | **2. Label** | Each work gets an artwork name, the student's name, and the story behind it. Star one piece to hang it on the feature wall. |
-| **3. Curate** | Optional. Drag the cards into the order you want. The **Main Exhibition** is the rotunda you arrive in and holds 13. Add rooms — click one to rename it and tick what hangs there, up to 18 each. One work is always on the feature wall; the first uploaded takes it unless you choose another. |
-| **4. Walk** | Left alone the floorplan builds itself: 13 in the Main Exhibition, then rooms of 10 (four a side, two on the end) to the north, south, west and east — each filled before the next opens. Naming rooms yourself unlocks the diagonals too, up to 8. A section of more than 10 opens another room beyond it, under the same name, with a doorway through. |
+| **3. Curate** | Optional. Drag the cards into the order you want. The **Main Exhibition** is the rotunda you arrive in and holds 13. Add rooms — rename one straight in the list, then click it to tick what hangs there, up to 18 each. The room keeps its number whatever you call it, so ② stays ② when it becomes Sculpture. One work is always on the feature wall; the first uploaded takes it unless you choose another. |
+| **4. Walk** | Left alone the floorplan builds itself: 13 in the Main Exhibition, then rooms of 10 (four a side, two on the end) to the north, south, west and east — each filled before the next opens. Until a direction is needed it holds a piece of sculpture instead, so the room you arrive in is finished from the first upload. Naming rooms yourself unlocks the diagonals too, up to 8. A section of more than 10 opens another room beyond it, under the same name, with a doorway through. |
 | **5. Share** | **Share museum** issues a code like `ABC-234`. Students type it in and they're standing in the same rooms. |
 
 Codes skip `I`, `L`, `O`, `0` and `1` — nothing a student can misread aloud.
+
+**How much it holds — 153 works.** Eight sections of 18, the feature wall, and the
+eight rotunda facets still walled once all eight doorways are open. Fill it and the
+museum says so and takes no more, rather than accepting artwork it has nowhere to
+hang. Presentation slides are counted separately and never come out of this.
 
 ---
 
 ## Inside the museum
 
-A domed rotunda with eight doorways, a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. Every section carries a numbered, lit sign above its doorway — ① Photography — and reaches outward as far as it needs to, one room opening into the next. A facet with no room behind it stays a wall and hangs work. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
+A domed rotunda with eight doorways, a glazed oculus, brass-trimmed walls and an LED title ring spelling out your exhibition name. Every section carries a numbered, lit sign above its doorway — ① Photography — and reaches outward as far as it needs to, one room opening into the next. A facet with no room behind it stays a wall and hangs work, and the four that have not been opened yet each hold a piece of sculpture. Daylight drifts across the floor. Other visitors wander the galleries and pause in front of the work.
 
 The fit-out is cut from one palette — cream limestone, speckled travertine, terracotta, olive, charcoal and pale oak. Plinths carry pierced rings, faceted stones, balanced pebbles and thrown pots; a glass case, a brass rope barrier and a reading stand fill out the corners, and each side room has two long benches. Deliberately sparse: nothing stands within a metre and a half of a picture, nothing blocks a doorway, and the walls are the exhibition.
 

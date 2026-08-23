@@ -54,7 +54,7 @@ const WING_ORDER = [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST, 7, 1, 3, 5];
 
 const ROT_CAP = 12;          // twelve on the rotunda walls, beside the feature
 const ROOM_CAP = 10;         // four a side, two on the end
-const SECTION_CAP = 18;      // as much as one named section will take
+const SECTION_CAP = 18;      // one full room and one through-room: 10 + 8
 const AUTO_GROUP = 5;        // the overflow that first calls a side room into being
 
 /* Eight ways out of the rotunda, so eight sections and no more - Room 1 to
@@ -65,6 +65,27 @@ const AUTO_GROUP = 5;        // the overflow that first calls a side room into b
 const MAIN_ROOM_NAME = "Main Exhibition";
 const MAX_SECTIONS = 8;
 const MAX_SECTIONS_AUTO = 4;
+
+/* Four directions is a preference, not a ceiling. Left alone the museum
+   uses the square sides and stops there, because a building that sprouts a
+   north-east wing on its own looks like an accident - but once those four
+   are genuinely full it would be a worse accident to have nowhere to hang
+   the rest. So the diagonals open when, and only when, they are needed. */
+function autoSectionLimit(overflow) {
+  return overflow <= MAX_SECTIONS_AUTO * SECTION_CAP ? MAX_SECTIONS_AUTO : MAX_SECTIONS;
+}
+
+/* What the building actually holds. Eighteen in each of the eight sections
+   is straightforward; the rotunda is not, because every doorway costs it a
+   facet. With no sections open it hangs twelve beside the feature wall, but
+   opening all eight takes four more of its sixteen facets for the diagonal
+   doorways and leaves eight. So the museum full is eight in the middle, one
+   on the feature wall and a hundred and forty-four out in the sections.
+
+   A hundred and fifty-seven would be the number if doorways were free.
+   They are not, and a limit that lets four works in with nowhere to hang
+   them is worse than one that is four short and true. */
+const MUSEUM_CAP = 1 + (G.SEG - DIR_COUNT) + MAX_SECTIONS * SECTION_CAP;   // 153
 
 /* How many works each wall of a room takes. Fixed rather than worked out
    from the length, because the length was chosen for these numbers - and
@@ -81,13 +102,42 @@ function roomSpan(depth) {
   const s0 = G.APO + depth * (G.WING_LEN + ROOM_GAP);
   return { s0: s0, s1: s0 + G.WING_LEN };
 }
-function roomsNeeded(n) { return Math.max(1, Math.ceil(n / ROOM_CAP)); }
+/* A room with another beyond it has a doorway where its end wall would be,
+   so it hangs eight rather than ten. Slicing a section into tens regardless
+   handed the first room two pictures it had no wall for, and those two
+   quietly vanished - which is why a fifty-work museum was showing
+   forty-four. */
+const THROUGH_CAP = SIDE_WALL_CAP * 2;                 // 8: no end wall
+const TERMINAL_CAP = SIDE_WALL_CAP * 2 + END_WALL_CAP; // 10: end wall too
 
-/* Which facets are actually openings. Everything else is wall. */
+function roomsNeeded(n) {
+  if (n <= TERMINAL_CAP) return 1;
+  return 1 + Math.ceil((n - TERMINAL_CAP) / THROUGH_CAP);
+}
+/* which of a section's works belong to room `d` of `need` */
+function roomShare(ids, d, need) {
+  const from = d * THROUGH_CAP;
+  return d === need - 1 ? ids.slice(from) : ids.slice(from, from + THROUGH_CAP);
+}
+
+/* The four square sides are always open - to a room if one is there, and
+   otherwise to a shallow niche with a piece in it. That is what keeps the
+   rotunda balanced when the museum is small, and it is what fixes its
+   hanging wall at twelve: sixteen facets, four of them openings.
+
+   The diagonals are the opposite: wall until a section asks for one. */
+const PRIMARY_DIRS = [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST];
 function activeDoors(rooms) {
   const open = {};
+  PRIMARY_DIRS.forEach(d => { open[DOOR_SEGS[d]] = true; });
   rooms.forEach(r => { open[DOOR_SEGS[r.dir]] = true; });
   return open;
+}
+/* the square sides with nothing behind them yet */
+function nicheDirections(rooms) {
+  const used = {};
+  rooms.forEach(r => { used[r.dir] = true; });
+  return PRIMARY_DIRS.filter(d => !used[d]);
 }
 
 /* ---------- a run is a straight stretch of hangable wall ---------- */
@@ -175,7 +225,11 @@ function planRooms(sections) {
 
   sections.forEach((sec, i) => {
     const dir = WING_ORDER[i % DIR_COUNT];
-    const need = roomsNeeded(sec.ids.length);
+    /* Eighteen to a section, which is two rooms deep and no more. A third
+       room in one direction would put its far wall sixty metres from the
+       front door, and nobody is walking that to see picture twenty-two. */
+    const ids = sec.ids.slice(0, SECTION_CAP);
+    const need = roomsNeeded(ids.length);
     const from = usedDepth[dir];
     for (let d = 0; d < need; d++) {
       const span = roomSpan(from + d);
@@ -183,7 +237,7 @@ function planRooms(sections) {
         dir: dir, depth: from + d, first: d === 0, last: d === need - 1,
         name: sec.name, section: i, index: 0,
         s0: span.s0, s1: span.s1, half: G.WING_HALF,
-        ids: sec.ids.slice(d * ROOM_CAP, (d + 1) * ROOM_CAP)
+        ids: roomShare(ids, d, need)
       });
     }
     usedDepth[dir] = from + need;
@@ -214,7 +268,12 @@ function openDirections(rooms) {
    became six rooms of five rather than three full ones. */
 function roomsForOverflow(n, max) {
   if (n <= 0) return 0;
-  return Math.min(max, Math.max(1, Math.ceil(n / ROOM_CAP)));
+  /* Enough sections that none is asked to hold more than a section can -
+     and, while there is room to spare, one section per roomful so a room
+     fills before the next one opens. */
+  const bySection = Math.max(1, Math.ceil(n / SECTION_CAP));
+  const byFilling = Math.max(1, Math.ceil(n / TERMINAL_CAP));
+  return Math.min(max, Math.max(bySection, Math.min(byFilling, max)));
 }
 
 /* Works shared between a number of rooms, filling each to ten in turn and
@@ -223,11 +282,11 @@ function shareIntoRooms(ids, rooms) {
   const out = [];
   for (let i = 0; i < rooms; i++) out.push([]);
   if (!rooms) return out;
-  if (ids.length <= rooms * ROOM_CAP) {
+  if (ids.length <= rooms * TERMINAL_CAP) {
     /* fill each in turn, so room one is full before room two has anything */
     let r = 0;
     ids.forEach(id => {
-      while (r < rooms - 1 && out[r].length >= ROOM_CAP) r++;
+      while (r < rooms - 1 && out[r].length >= TERMINAL_CAP) r++;
       out[r].push(id);
     });
   } else {
@@ -237,12 +296,29 @@ function shareIntoRooms(ids, rooms) {
   return out;
 }
 
+/* How many works the rotunda will really have walls for, which depends on
+   how many doorways end up being cut into it - and that depends on how much
+   the rotunda could not hold. Settled by looking, in two or three passes:
+   each diagonal a section opens costs the middle one of its facets. */
+function rotundaHold(total) {
+  let hold = ROT_CAP;
+  for (let pass = 0; pass < 4; pass++) {
+    const over = Math.max(0, total - hold);
+    const secs = roomsForOverflow(over, autoSectionLimit(over));
+    const next = ROT_CAP - Math.max(0, secs - MAX_SECTIONS_AUTO);
+    if (next === hold) break;
+    hold = next;
+  }
+  return hold;
+}
+
 function autoSections(ids) {
-  const rot = ids.slice(0, ROT_CAP);
-  const rest = ids.slice(ROT_CAP);
+  const hold = rotundaHold(ids.length);
+  const rot = ids.slice(0, hold);
+  const rest = ids.slice(hold);
   const sections = [{ name: MAIN_ROOM_NAME, ids: rot, central: true }];
 
-  const rooms = roomsForOverflow(rest.length, MAX_SECTIONS_AUTO);
+  const rooms = roomsForOverflow(rest.length, autoSectionLimit(rest.length));
   shareIntoRooms(rest, rooms).forEach((group, i) => {
     if (group.length) sections.push({ name: "Room " + (i + 1), ids: group });
   });
@@ -291,7 +367,7 @@ function layoutSections(sections) {
      doubled up on a facet, where two pictures on a wall built for one is
      two pictures touching. Settled by looking, because opening one more
      doorway can take away the very facet that made room for it. */
-  const maxSections = outer.some(s => s.curated) ? MAX_SECTIONS : MAX_SECTIONS_AUTO;
+  const maxSections = MAX_SECTIONS;
   outer = capSections(outer, maxSections);
   let rooms = planRooms(outer);
   let doors = activeDoors(rooms);
@@ -354,6 +430,11 @@ function layoutSections(sections) {
     for (let si = 0; si < slots.length && placed < ids.length; si++) {
       if (order[si] < runFrom || order[si] >= runTo) continue;
       if (slots[si].artId !== undefined) continue;
+      /* A work already given a position keeps it. Two sections listing the
+         same id - which a fold or a spill can produce - would otherwise
+         overwrite the first mapping and leave two works pointing at one
+         wall. */
+      if (byArt[ids[placed]] !== undefined) { placed++; si--; continue; }
       slots[si].artId = ids[placed];
       byArt[ids[placed]] = si;
       placed++;
@@ -367,7 +448,8 @@ function layoutSections(sections) {
 
   return {
     rooms: rooms, runs: runs, slots: slots, spacing: spacing,
-    open: openDirections(rooms), doors: doors, byArt: byArt
+    open: openDirections(rooms), doors: doors, byArt: byArt,
+    niches: nicheDirections(rooms)
   };
 }
 

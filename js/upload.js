@@ -13,10 +13,14 @@ function paintPlan() {
   planCanvas.width = w * dpr; planCanvas.height = h * dpr;
   const ctx = planCanvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawFloorplan(ctx, w, h, { dark: false });
+  /* Worked out once and both drawn and counted from - the drawing used to
+     ask for its own layout and got one built from every artwork, feature
+     wall and paired track included, so it drew a dot for work that hangs
+     nowhere and a room the museum does not have. */
+  const layout = exhibitionLayout(hangingPlan().wall);
+  drawFloorplan(ctx, w, h, { dark: false, layout: layout });
 
   const n = State.art.length;
-  const layout = exhibitionLayout(hangingPlan().wall);
   const count = layout.rooms.length;
   const rooms = count === 0 ? "Rotunda only"
     : "Rotunda + " + count + (count === 1 ? " room" : " rooms");

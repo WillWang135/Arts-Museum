@@ -58,6 +58,7 @@ function paintMinimap() {
   if (c.classList.contains("hidden")) return;
   drawFloorplan(c.getContext("2d"), c.width, c.height, {
     dark: true,
+    layout: builtLayout(),
     player: { x: Player.x, z: Player.z, yaw: Math.atan2(-Math.cos(Player.yaw), -Math.sin(Player.yaw)) }
   });
 }

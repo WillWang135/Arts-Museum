@@ -569,6 +569,7 @@ function buildMuseum() {
   const music = hangingPlan();
   const featured = music.featured;
   const layout = exhibitionLayout(music.wall);
+  setBuiltLayout(layout);          /* the minimap draws this very plan */
 
   buildShell(layout);
   buildFeatureWall(featured);

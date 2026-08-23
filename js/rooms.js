@@ -177,9 +177,20 @@ function exhibitionSections(wallArt) {
   return sections;
 }
 
-/* The whole plan, for the 3D build and for both floorplans. */
+/* The whole plan, for the 3D build and for both floorplans.
+
+   `wallArt` is the list of works that need a wall of their own. Asked
+   without one it works that list out itself rather than falling back to
+   every artwork there is - which is what the hero plan and the minimap
+   were doing, and why the map drew a dot for the piece already hanging on
+   the feature wall, and a dot for a track hanging above somebody else's
+   picture. Thirteen works drew fourteen dots and opened a side room the
+   museum did not have.
+
+   One list in, one position per work out, and the map and the building
+   are reading the same page. */
 function exhibitionLayout(wallArt) {
-  return layoutSections(exhibitionSections(wallArt));
+  return layoutSections(exhibitionSections(wallArt || hangingPlan().wall));
 }
 
 /* How many physical rooms the current arrangement needs, for the line under

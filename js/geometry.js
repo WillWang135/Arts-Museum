@@ -45,12 +45,19 @@ const WING_DIR = DOOR_SEGS.map(i => {
 });
 const DIR_COUNT = WING_DIR.length;
 
-/* +X is east and +Z is south, so the four square directions come first -
-   north, south, west, east - and the diagonals only after them, clockwise
-   from north-east. A museum with two side rooms should have them opposite
-   each other, not tucked into two corners. */
-const DIR_NORTH = 6, DIR_SOUTH = 2, DIR_WEST = 4, DIR_EAST = 0;
-const WING_ORDER = [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST, 7, 1, 3, 5];
+/* +X is east and +Z is south, which fixes every doorway to a facet:
+   east 0, south-east 1, south 2, south-west 3, west 4, north-west 5,
+   north 6, north-east 7.
+
+   Rooms are taken in a fixed order - north, south, east, west, and only
+   then the corners clockwise from north-east. The square sides come first
+   because a museum with two side rooms should have them opposite each
+   other rather than tucked into two corners, and north before south
+   because that is the way you are already facing when you walk in. */
+const DIR_EAST = 0, DIR_SOUTH_EAST = 1, DIR_SOUTH = 2, DIR_SOUTH_WEST = 3,
+      DIR_WEST = 4, DIR_NORTH_WEST = 5, DIR_NORTH = 6, DIR_NORTH_EAST = 7;
+const WING_ORDER = [DIR_NORTH, DIR_SOUTH, DIR_EAST, DIR_WEST,
+                    DIR_NORTH_EAST, DIR_SOUTH_EAST, DIR_SOUTH_WEST, DIR_NORTH_WEST];
 
 const ROT_CAP = 12;          // twelve on the rotunda walls, beside the feature
 const ROOM_CAP = 10;         // four a side, two on the end
@@ -70,9 +77,13 @@ const MAX_SECTIONS_AUTO = 4;
    uses the square sides and stops there, because a building that sprouts a
    north-east wing on its own looks like an accident - but once those four
    are genuinely full it would be a worse accident to have nowhere to hang
-   the rest. So the diagonals open when, and only when, they are needed. */
+   the rest. So the diagonals open when, and only when, they are needed.
+
+   Full means ten in each of the four, not eighteen. Waiting for eighteen
+   meant north was two rooms deep - the far wall forty metres out - while
+   north-east was still a blank facet, which is not how a building grows. */
 function autoSectionLimit(overflow) {
-  return overflow <= MAX_SECTIONS_AUTO * SECTION_CAP ? MAX_SECTIONS_AUTO : MAX_SECTIONS;
+  return overflow <= MAX_SECTIONS_AUTO * ROOM_CAP ? MAX_SECTIONS_AUTO : MAX_SECTIONS;
 }
 
 /* What the building actually holds. Eighteen in each of the eight sections
@@ -126,7 +137,7 @@ function roomShare(ids, d, need) {
    hanging wall at twelve: sixteen facets, four of them openings.
 
    The diagonals are the opposite: wall until a section asks for one. */
-const PRIMARY_DIRS = [DIR_NORTH, DIR_SOUTH, DIR_WEST, DIR_EAST];
+const PRIMARY_DIRS = [DIR_NORTH, DIR_SOUTH, DIR_EAST, DIR_WEST];
 function activeDoors(rooms) {
   const open = {};
   PRIMARY_DIRS.forEach(d => { open[DOOR_SEGS[d]] = true; });
@@ -261,38 +272,61 @@ function openDirections(rooms) {
 /* The rotunda first, then as many side rooms as the overflow needs, ten to
    a room, opposite pairs first. Exactly what the museum did before rooms
    could be named - a host who just wants to walk in still can. */
-/* How many rooms an overflow of n works calls for. A room opens as soon as
-   there is anything to put in it, and then FILLS - to ten, which is what a
-   room holds - before the next one opens. Sharing the overflow evenly
-   between as many rooms as five-would-make was the mistake: thirty works
-   became six rooms of five rather than three full ones. */
+/* How many rooms an overflow of n works calls for.
+
+   A room opens with five in it and is filled to ten before the museum
+   reaches for another direction. That is two passes over the square sides
+   - north, south, east, west to five each, then the same four to ten each
+   - and only when all four are full do the corners start, on the same
+   ladder. So:
+
+     N5  S5  E5  W5   N10 S10 E10 W10
+     NE5 SE5 SW5 NW5  NE10 SE10 SW10 NW10
+
+   Five is enough to be worth walking to and ten is what a room holds; a
+   room that opens with one picture in it is an empty room with a picture
+   in it, and four rooms of five beats eight rooms of two and a half. */
 function roomsForOverflow(n, max) {
   if (n <= 0) return 0;
-  /* Enough sections that none is asked to hold more than a section can -
-     and, while there is room to spare, one section per roomful so a room
-     fills before the next one opens. */
-  const bySection = Math.max(1, Math.ceil(n / SECTION_CAP));
-  const byFilling = Math.max(1, Math.ceil(n / TERMINAL_CAP));
-  return Math.min(max, Math.max(bySection, Math.min(byFilling, max)));
+  const square = Math.min(max, MAX_SECTIONS_AUTO);
+  /* first pass round the square sides: one more room per five works */
+  if (n <= square * AUTO_GROUP) return Math.min(square, Math.ceil(n / AUTO_GROUP));
+  /* second pass: those same four fill to ten before anything else opens */
+  if (n <= square * ROOM_CAP || max <= square) return square;
+  /* then the corners, on the same ladder */
+  const past = n - square * ROOM_CAP;
+  return square + Math.min(max - square, Math.ceil(past / AUTO_GROUP));
 }
 
-/* Works shared between a number of rooms, filling each to ten in turn and
-   only spreading out when there are more works than rooms can hold. */
+/* Works shared between rooms in that same order, and it has to be that
+   same order or the count above is describing a building nobody built.
+
+   Filling straight to ten in turn was the previous behaviour and it opened
+   the fifth room - a corner - while west still had seven in it. The passes
+   are kept in tiers for that reason: the four square sides finish both of
+   theirs before a corner is offered anything. */
 function shareIntoRooms(ids, rooms) {
   const out = [];
   for (let i = 0; i < rooms; i++) out.push([]);
   if (!rooms) return out;
-  if (ids.length <= rooms * TERMINAL_CAP) {
-    /* fill each in turn, so room one is full before room two has anything */
-    let r = 0;
-    ids.forEach(id => {
-      while (r < rooms - 1 && out[r].length >= TERMINAL_CAP) r++;
-      out[r].push(id);
-    });
-  } else {
-    /* more than the rooms can hold: the extra goes deeper, evenly */
-    ids.forEach((id, i) => { out[i % rooms].push(id); });
-  }
+  let k = 0;
+  const fill = (from, to, mark) => {
+    for (let r = from; r < to && k < ids.length; r++) {
+      while (out[r].length < mark && k < ids.length) out[r].push(ids[k++]);
+    }
+  };
+  const square = Math.min(rooms, MAX_SECTIONS_AUTO);
+  fill(0, square, AUTO_GROUP);        // N  S  E  W   five each
+  fill(0, square, ROOM_CAP);          // N  S  E  W   ten each
+  fill(square, rooms, AUTO_GROUP);    // NE SE SW NW  five each
+  fill(square, rooms, ROOM_CAP);      // NE SE SW NW  ten each
+  /* Only once every direction holds ten does any section grow a second
+     room beyond the first - again in the same order, so north reaches
+     further out before south does. */
+  fill(0, rooms, SECTION_CAP);
+  /* past what eight sections two rooms deep can hold, which the museum's
+     capacity limit already makes unreachable - spread rather than drop */
+  while (k < ids.length) out[k % rooms].push(ids[k++]);
   return out;
 }
 
@@ -452,6 +486,14 @@ function layoutSections(sections) {
     niches: nicheDirections(rooms)
   };
 }
+
+/* The plan the museum was actually built from. The minimap draws this one
+   rather than working a layout out again eleven times a second - and, more
+   to the point, rather than working out a different one. Map and building
+   read the same object or the map is not a map of this building. */
+let BUILT_LAYOUT = null;
+function setBuiltLayout(l) { BUILT_LAYOUT = l; }
+function builtLayout() { return BUILT_LAYOUT; }
 
 /* The old shape, kept for anything that only knows how many works there
    are - the hero plan's status line, mainly. */

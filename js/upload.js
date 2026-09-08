@@ -594,14 +594,21 @@ $("clear-btn").addEventListener("click", () => {
 });
 
 /* ---------- save / open ---------- */
+/* Anything already published in exhibition/ is written back as the path it
+   came from rather than the full address of this particular copy of the
+   site. That is what lets the saved file be dropped straight in as
+   exhibition/museum.json: it keeps working after a push, and it keeps
+   working if the repository is ever renamed or served from somewhere else.
+   A picture that was uploaded here is still written out whole, because
+   there is nowhere else for it to live. */
 function saveMuseum() {
-  const blob = new Blob([JSON.stringify({
+  const blob = new Blob([JSON.stringify(relativiseToExhibition({
     format: "student-art-museum", version: 2,
     title: State.session.title || "Student Art Museum",
     code: State.session.code || null,
     saved: new Date().toISOString(),
     art: State.art, stickers: State.stickers, deck: State.deck, rooms: State.rooms
-  })], { type: "application/json" });
+  }))], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "student-art-museum.json";
@@ -614,24 +621,12 @@ $("restore-input").addEventListener("change", async e => {
   if (!f) return;
   try {
     const data = JSON.parse(await f.text());
-    if (data.format !== "student-art-museum" || !Array.isArray(data.art)) throw new Error("shape");
-    disposeAllMedia();
-    State.art = data.art;
-    State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
-    State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
-    State.rooms = Array.isArray(data.rooms) ? data.rooms : [];
-    Deck.at = 0;
-    renderDeckBox();
-    /* Slides draw their ids from the same counter as artwork, so the counter
-       has to clear both or the next slide added would reuse an id that
-       already has reactions recorded against it. */
-    State.nextId = Math.max(
-      State.art.reduce((m, a) => Math.max(m, a.id || 0), 0),
-      deckSlides().reduce((m, s) => Math.max(m, (s && s.id) || 0), 0),
-      museumRooms().reduce((m, r) => Math.max(m, (r && r.id) || 0), 0)) + 1;
-    State.session = { code: data.code || null, title: data.title || "", published: null };
-    $("museum-title").value = State.session.title;
-    renderLabels();
+    if (!sessionShapeOk(data)) throw new Error("shape");
+    /* A file saved from a published exhibition carries paths rather than
+       whole pictures, so they are pointed back at exhibition/ before it is
+       hung. A file full of uploaded work has nothing relative in it and
+       comes through untouched. */
+    adoptSession(resolveSessionPaths(data));
   } catch (err) {
     alert("That file isn't a saved museum. Choose a student-art-museum.json file saved from this app.");
   }

@@ -110,3 +110,43 @@ async function freshCode() {
   }
   return makeCode();
 }
+
+
+/* ============================================================
+   TAKING ON A SAVED MUSEUM
+
+   Opening a file, joining with a code and loading the exhibition
+   published beside the page all do the same thing to State, and
+   all three used to do it in their own copy of the same fifteen
+   lines. One of them is now the only one, so a field added to
+   the save format is added in one place.
+   ============================================================ */
+function sessionShapeOk(data) {
+  return !!data && data.format === "student-art-museum" && Array.isArray(data.art);
+}
+
+function adoptSession(data, opts) {
+  const o = opts || {};
+  disposeAllMedia();
+  State.art = data.art;
+  State.stickers = Array.isArray(data.stickers) ? data.stickers : [];
+  State.deck = (data.deck && Array.isArray(data.deck.slides) && data.deck.slides.length) ? data.deck : null;
+  State.rooms = Array.isArray(data.rooms) ? data.rooms : [];
+  Deck.at = 0;
+  /* Slides and rooms draw their ids from the same counter as artwork, so the
+     counter has to clear all three or the next thing added would reuse an id
+     that already has reactions recorded against it. */
+  State.nextId = Math.max(
+    State.art.reduce((m, a) => Math.max(m, a.id || 0), 0),
+    deckSlides().reduce((m, s) => Math.max(m, (s && s.id) || 0), 0),
+    museumRooms().reduce((m, r) => Math.max(m, (r && r.id) || 0), 0)) + 1;
+  State.session = {
+    code: o.code !== undefined ? o.code : (data.code || null),
+    title: data.title || (o.code ? "Student Art Museum" : ""),
+    published: o.published !== undefined ? o.published : null
+  };
+  const field = $("museum-title");
+  if (field) field.value = State.session.title;
+  renderDeckBox();
+  renderLabels();
+}

@@ -443,8 +443,14 @@ function buildDeckScreen(panelW, zBack) {
   };
   target(sw, sh, 0, cy, { deckOpen: true });
   const ay = cy - sh / 2 - 0.30;
-  target(barH * 1.5, barH * 1.4, -barW * 0.38, ay, { deckStep: -1 });
-  target(barH * 1.5, barH * 1.4, barW * 0.38, ay, { deckStep: 1 });
+  /* The strip's picture is mirrored by the half-turn that faces it into the
+     room, so the arrow drawn on the canvas's left edge comes out on the +X
+     side of the group. These targets are positioned in the group's own space,
+     which that turn does not touch, so each one has to go where its arrow
+     actually lands rather than where it was drawn - otherwise every click
+     steps the deck the opposite way from the arrow it landed on. */
+  target(barH * 1.5, barH * 1.4, barW * 0.38, ay, { deckStep: -1 });
+  target(barH * 1.5, barH * 1.4, -barW * 0.38, ay, { deckStep: 1 });
 
   paintDeckScreen();
   restoreSlideStickers();

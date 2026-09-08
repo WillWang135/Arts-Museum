@@ -38,7 +38,15 @@ function buildShell(layout) {
       segSlab(i, G.CHORD + 0.06, lintelH, G.WALL_T, rad, G.DOOR_H + lintelH / 2, MAT.wall);
       segSlab(i, G.CHORD + 0.06, 0.26, 0.2, G.APO - 0.08, G.WALL_H - 0.5, MAT.trim);
       segSlab(i, G.CHORD, 0.016, 0.035, lineR, G.WALL_H - 0.78, MAT.brass, 0, true);
-      segSlab(i, G.DOOR_W + 0.46, 0.16, 0.12, G.APO - 0.04, G.DOOR_H + 0.08, MAT.brass, 0, true);
+      /* The head trim hangs fifteen millimetres below the opening rather than
+         starting exactly level with it. Sitting flush, its underside was the
+         same plane as the underside of the lintel above - two surfaces at
+         y = DOOR_H, overlapping in the two centimetres the trim is buried in
+         the wall - and brass and plaster took turns winning that strip as the
+         camera moved, which read as a black and white line flickering under
+         the door head. Dropping the trim puts its own underside in open air
+         and leaves nothing for the lintel to fight over. */
+      segSlab(i, G.DOOR_W + 0.46, 0.16, 0.12, G.APO - 0.04, G.DOOR_H + 0.065, MAT.brass, 0, true);
       /* the upright trims sit just inside the reveal, their far edge buried
          in the wall so no two faces ever share a plane */
       [1, -1].forEach(sg => segSlab(i, 0.16, G.DOOR_H, 0.12, G.APO - 0.04, G.DOOR_H / 2, MAT.brass, sg * 1.86, true));
@@ -126,7 +134,11 @@ function buildShell(layout) {
      from the south door to the wall completely open. */
   makeArchway(3.6, -10.4, 0.4, 1.0);
   makeVitrine(-3.6, -10.4, 0.3, 2);
-  makeLabelStand(-5.4, -9.2, 0.6);
+  /* No reading stand here either. The side rooms lost theirs for standing in
+     the place you stop to look at the first picture; this one had the same
+     fault in the rotunda, sitting out on open floor between the corner plinth
+     and the vitrine with nothing to explain. The wall labels under each work
+     and the plate over each doorway are where the museum does its reading. */
 }
 
 

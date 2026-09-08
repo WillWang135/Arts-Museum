@@ -213,6 +213,43 @@ function mainRoomLoad() {
 }
 
 
+/* ---------- naming a room the overflow opened ----------
+   Left alone, the rooms beyond the rotunda are worked out again every time
+   anything is drawn. They have names, but no identity - so there is nothing
+   for the host to rename, and nothing for a work to be filed under.
+
+   The moment one of them is named, they all become real: same order, same
+   names, the same works already hanging in them. Nothing on the strip moves
+   and the museum builds exactly what it was about to build anyway. The only
+   difference is that the arrangement is now written down, and the host can
+   type into it. */
+function materialiseAutoRooms() {
+  const sections = exhibitionSections(hangingPlan().wall);
+  const known = museumRooms().map(r => r.name);
+  sections.forEach(sec => {
+    if (sec.central) return;
+    if (known.indexOf(sec.name) !== -1) return;        // already the host's own
+    const room = addRoom(sec.name);
+    if (!room) return;
+    known.push(room.name);
+    sec.ids.forEach(id => {
+      const a = State.art.find(x => x.id === id);
+      if (a) a.room = room.id;
+    });
+  });
+}
+
+/* The room shown at this position on the strip, as one the host owns.
+   Position 0 is the rotunda, which is not a room anybody names; 1 onwards
+   are the rooms beyond it, and that number is what the card shows and what
+   the sign over the doorway shows. */
+function claimShownRoom(pos) {
+  if (!(pos > 0)) return null;
+  materialiseAutoRooms();
+  return museumRooms()[pos - 1] || null;
+}
+
+
 /* ---------- what the home screen shows ----------
    Every room the museum will actually build, whether the host made it or
    the overflow did. A host who uploads twenty works and names nothing
@@ -221,8 +258,7 @@ function mainRoomLoad() {
 function shownRooms() {
   const loose = artInRoom(null).length;
   const out = [{ id: null, name: MAIN_ROOM_NAME, fixed: true,
-                 works: Math.min(loose, mainRoomCapacity()), cap: mainRoomCapacity(),
-                 spills: loose > mainRoomCapacity() }];
+                 works: Math.min(loose, mainRoomCapacity()), cap: mainRoomCapacity() }];
   museumRooms().forEach(r => {
     out.push({ id: r.id, name: r.name, works: artInRoom(r.id).length, cap: SECTION_CAP });
   });

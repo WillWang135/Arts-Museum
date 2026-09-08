@@ -69,22 +69,24 @@ function renderRooms() {
       (r.fixed ? " room-main" : "") + (r.auto ? " room-auto" : "") +
       (r.works > r.cap ? " over" : "");
     chip.title = r.fixed ? "The rotunda you arrive in — its name is fixed"
-      : (r.auto ? "Opened automatically — click to name it and choose what hangs here"
+      : (r.auto ? "Opened automatically — type to give it a name"
                 : "Click to rename and choose what hangs here");
     chip.dataset.id = r.id === null ? "" : r.id;
+    /* The number is where the room stands, not what it is called: the middle
+       is 0 and the rooms beyond it count up from 1, which is the number on
+       the sign over each doorway. Renaming never moves a room, so the number
+       beside the cursor does not change while it is being typed into. */
+    chip.dataset.pos = i;
     if (!r.fixed && !r.auto) chip.draggable = true;
     chip.innerHTML =
       (r.fixed || r.auto ? "" : '<span class="grip">\u2261</span>') +
-      '<span class="room-no">' + (i + 1) + '</span>' +
+      '<span class="room-no">' + i + '</span>' +
       (r.fixed
         ? '<span class="room-title">' + MAIN_ROOM_NAME + '</span>'
-        : (r.auto
-          ? '<span class="room-title">' + escapeText(r.name) + '</span>'
-          : '<input class="room-title room-rename" maxlength="40" value="' + escapeText(r.name) +
-            '" title="Type a new name for this room">' +
-            '<button class="room-open" type="button" title="Choose what hangs here">Works</button>')) +
+        : '<input class="room-title room-rename" maxlength="40" value="' + escapeText(r.name) +
+          '" title="Type a new name for this room">' +
+          (r.auto ? "" : '<button class="room-open" type="button" title="Choose what hangs here">Works</button>')) +
       '<span class="room-count">' + r.works + " / " + r.cap +
-        (r.spills ? " \u00b7 spills outward" : "") +
         (!r.fixed && physical > 1 ? " \u00b7 " + physical + " rooms" : "") + '</span>' +
       (r.fixed || r.auto ? "" : '<button class="room-del" type="button" title="Remove this room">\u00d7</button>');
     list.appendChild(chip);
@@ -325,14 +327,10 @@ $("room-add").addEventListener("click", () => {
 $("rooms-list").addEventListener("click", e => {
   const chip = e.target.closest(".room-chip");
   if (!chip) return;
-  /* A room the overflow opened is not the host's yet. Clicking it makes it
-     theirs - named, listed, and ready to be filled - which is the obvious
-     thing to want from a room you can already see on the plan. */
-  if (chip.classList.contains("room-auto")) {
-    addRoom(chip.querySelector(".room-title").textContent);
-    renderLabels();
-    return;
-  }
+  /* Clicking a room does nothing to the strip. A room the overflow opened
+     used to be claimed here, which redrew the list and could move the very
+     card being clicked out from under the pointer - so a name is claimed
+     where it is typed instead, and a click is only ever a caret. */
   if (!chip.dataset.id) return;
   if (e.target.closest(".room-del")) { removeRoom(+chip.dataset.id); renderLabels(); return; }
   if (e.target.closest(".room-open")) openRoomPanel(+chip.dataset.id);
@@ -344,7 +342,18 @@ $("rooms-list").addEventListener("click", e => {
 $("rooms-list").addEventListener("input", e => {
   if (!e.target.classList.contains("room-rename")) return;
   const chip = e.target.closest(".room-chip");
-  if (!chip || !chip.dataset.id) return;
+  if (!chip) return;
+  /* A room the overflow opened has a name but nothing behind it, so the
+     first keystroke settles the arrangement as it stands: every room the
+     plan had opened becomes a real one, in the order it already stood in
+     and holding the works it already held. The strip is deliberately not
+     redrawn here - the card keeps its place, its number and its caret. */
+  if (!chip.dataset.id) {
+    const claimed = claimShownRoom(+chip.dataset.pos);
+    if (!claimed) return;
+    chip.dataset.id = claimed.id;
+    chip.classList.remove("room-auto");
+  }
   renameRoom(+chip.dataset.id, e.target.value);
   paintPlan();
 });

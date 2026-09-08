@@ -39,6 +39,15 @@
 const EXHIBITION_DIR = "exhibition/";
 const EXHIBITION_FILE = "museum.json";
 
+/* Where this file was loaded from, caught while the page is still parsing it,
+   because document.currentScript is only itself during that moment. It is a
+   surer footing than the page address: js/exhibition.js is always one folder
+   below the site root, whereas the address in the bar might be the root with
+   no trailing slash - and "exhibition/" resolved against
+   ".../Arts-Museum" lands on ".../exhibition", one folder too high.
+   The single-file build has no src to read, and falls back to the page. */
+const EXHIBITION_SCRIPT = (document.currentScript && document.currentScript.src) || "";
+
 /* The published show, exactly as it was read, kept aside and never handed
    out. State gets a copy, so anything the visitor does to the museum in
    front of them cannot reach back and alter what was published. */
@@ -49,6 +58,9 @@ const Builtin = { data: null, loaded: false, started: false };
    it sits beside index.html, and both come out right because the browser
    resolves it against the document. */
 function exhibitionBase() {
+  try {
+    if (EXHIBITION_SCRIPT) return new URL("../" + EXHIBITION_DIR, EXHIBITION_SCRIPT).href;
+  } catch (e) { /* fall through to the page address */ }
   try { return new URL(EXHIBITION_DIR, location.href).href; }
   catch (e) { return EXHIBITION_DIR; }
 }
@@ -57,11 +69,18 @@ function exhibitionBase() {
    left exactly as they are. Anything else is a file published beside
    museum.json, and `folder` is where to look if the path does not say. */
 function exhibitionUrl(ref, folder) {
-  const s = String(ref || "").trim();
+  let s = String(ref || "").trim();
   if (!s) return "";
   if (/^(data:|blob:|https?:|\/\/)/i.test(s)) return s;
+  s = s.replace(/^\.?\//, "");
+  /* Written from the repository root - "exhibition/images/one.jpg" - rather
+     than from inside the folder. Both are the obvious thing to write, so both
+     mean the same file. */
+  s = s.replace(/^exhibition\//i, "");
   const rel = s.indexOf("/") === -1 ? (folder || "") + s : s;
-  try { return new URL(rel.replace(/^\.?\//, ""), exhibitionBase()).href; }
+  /* The URL constructor percent-encodes what has to be encoded, which matters
+     here: these filenames have spaces and brackets in them. */
+  try { return new URL(rel, exhibitionBase()).href; }
   catch (e) { return exhibitionBase() + rel; }
 }
 
@@ -90,9 +109,15 @@ function basename(ref) {
 
 /* An entry may be a bare filename or an object carrying the wall label with
    it, so a hand-written file can say more than the filename does. */
+/* A list entry is a filename, or an object carrying the wall label with it.
+   The file itself may be under `src` or `file`: `src` is what the museum's
+   own save format calls it, so it is the one to reach for first. */
 function builtinRef(entry) {
   if (!entry) return null;
-  return typeof entry === "string" ? { file: entry } : entry;
+  if (typeof entry === "string") return { file: entry };
+  const file = entry.src || entry.file;
+  if (!file) return null;
+  return Object.assign({}, entry, { file: file });
 }
 function applyBuiltinFields(art, ref) {
   if (ref.name) art.name = ref.name;
@@ -109,7 +134,7 @@ async function sessionFromManifest(data) {
     const ref = builtinRef(entry);
     if (!ref || !ref.file) continue;
     try { art.push(applyBuiltinFields(await artFromBuiltinImage(ref.file), ref)); }
-    catch (e) { warnExhibition("could not read image " + ref.file); }
+    catch (e) { warnExhibition("image did not load: " + exhibitionUrl(ref.file, "images/")); }
   }
   (Array.isArray(data.audio) ? data.audio : []).forEach(entry => {
     const ref = builtinRef(entry);
@@ -234,6 +259,13 @@ async function loadBuiltinExhibition() {
   Builtin.data = data;
   Builtin.loaded = true;
   adoptSession(markBuiltin(JSON.parse(JSON.stringify(data))));
+  const pics = data.art.filter(a => artKind(a) === "image").length;
+  if (window.console && console.log) {
+    console.log("exhibition: hung " + data.art.length + " works (" +
+                pics + " image" + (pics === 1 ? "" : "s") + ", " +
+                (data.art.length - pics) + " track" + (data.art.length - pics === 1 ? "" : "s") +
+                ") from " + exhibitionBase() + EXHIBITION_FILE);
+  }
   return true;
 }
 

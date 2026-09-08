@@ -1,5 +1,139 @@
 {
   "version": 1,
-  "images": [],
-  "audio": []
+  "images": [
+    {
+      "src": "images/P1 - Nature.jpg",
+      "name": "P1 - Nature"
+    },
+    {
+      "src": "images/P2 - Nature.jpg",
+      "name": "P2 - Nature"
+    },
+    {
+      "src": "images/P3 - Nature.jpg",
+      "name": "P3 - Nature"
+    },
+    {
+      "src": "images/P4 - Nature.jpg",
+      "name": "P4 - Nature"
+    },
+    {
+      "src": "images/P5 - Nature.jpg",
+      "name": "P5 - Nature"
+    },
+    {
+      "src": "images/P6 - Nature.jpg",
+      "name": "P6 - Nature"
+    },
+    {
+      "src": "images/P7 - Nature.jpg",
+      "name": "P7 - Nature"
+    },
+    {
+      "src": "images/P8 - Nature.jpg",
+      "name": "P8 - Nature"
+    },
+    {
+      "src": "images/P9 - Nature.jpg",
+      "name": "P9 - Nature"
+    },
+    {
+      "src": "images/P10 - Nature.jpg",
+      "name": "P10 - Nature"
+    },
+    {
+      "src": "images/P11 - Nature.jpg",
+      "name": "P11 - Nature"
+    },
+    {
+      "src": "images/P12 - Nature.jpg",
+      "name": "P12 - Nature"
+    },
+    {
+      "src": "images/P13 - Nature.jpg",
+      "name": "P13 - Nature"
+    },
+    {
+      "src": "images/P14 - Nature.jpg",
+      "name": "P14 - Nature"
+    },
+    {
+      "src": "images/P15 - Nature.jpg",
+      "name": "P15 - Nature"
+    },
+    {
+      "src": "images/P16 - Nature.jpg",
+      "name": "P16 - Nature"
+    },
+    {
+      "src": "images/P17 - Nature.jpg",
+      "name": "P17 - Nature"
+    },
+    {
+      "src": "images/P18 - Nature.jpg",
+      "name": "P18 - Nature"
+    },
+    {
+      "src": "images/P19 - Nature.jpg",
+      "name": "P19 - Nature"
+    },
+    {
+      "src": "images/P20 - Nature.jpg",
+      "name": "P20 - Nature"
+    },
+    {
+      "src": "images/P21 - Nature.jpg",
+      "name": "P21 - Nature"
+    },
+    {
+      "src": "images/P22 - Nature.jpg",
+      "name": "P22 - Nature"
+    },
+    {
+      "src": "images/P23 - Nature.jpg",
+      "name": "P23 - Nature"
+    },
+    {
+      "src": "images/P24 - Nature.jpg",
+      "name": "P24 - Nature"
+    },
+    {
+      "src": "images/P25 - Nature.jpg",
+      "name": "P25 - Nature"
+    },
+    {
+      "src": "images/P26 - Nature.jpg",
+      "name": "P26 - Nature"
+    },
+    {
+      "src": "images/P27 - Nature.jpg",
+      "name": "P27 - Nature"
+    },
+    {
+      "src": "images/P28 - Nature.jpg",
+      "name": "P28 - Nature"
+    },
+    {
+      "src": "images/P29 - Nature.jpg",
+      "name": "P29 - Nature"
+    },
+    {
+      "src": "images/P30 - Nature.jpg",
+      "name": "P30 - Nature"
+    }
+  ],
+  "audio": [
+    {
+      "src": "audio/A Summer Day by the Sea (Instrumental).mp3",
+      "name": "A Summer Day by the Sea (Instrumental)"
+    },
+    {
+      "src": "audio/Coastline Daydream.mp3",
+      "name": "Coastline Daydream"
+    },
+    {
+      "src": "audio/Golden Hour Memories.mp3",
+      "name": "Golden Hour Memories"
+    }
+  ]
 }

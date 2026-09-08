@@ -42,9 +42,23 @@ Any entry can carry its wall label instead of just a filename:
 
 ## Adding the files
 
-Put pictures in `images/` and MP3s in `audio/`, then name them in
-`museum.json`. Paths are relative to this folder, so `"images/one.jpg"` and
-`"one.jpg"` in the `images` list mean the same file.
+Dropping files into `images/` and `audio/` is not enough on its own. A static
+site cannot read a folder — GitHub Pages serves files, and nothing it serves
+says what is in a directory — so `museum.json` has to name them.
+
+From the project folder:
+
+```
+python3 build-exhibition.py
+```
+
+That lists both folders into `museum.json`. Run it after adding or removing
+files, then commit `museum.json` along with them. Anything you have written
+against an entry — a name, an artist, a description, the room it hangs in — is
+kept; only the list of files changes.
+
+Paths are relative to this folder, so `"images/one.jpg"`, `"one.jpg"` and
+`"exhibition/images/one.jpg"` all mean the same file.
 
 ## What visitors can and cannot change
 
